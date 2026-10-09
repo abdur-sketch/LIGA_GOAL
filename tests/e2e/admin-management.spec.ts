@@ -29,6 +29,6 @@ test("admin management pages render on protected routes", async ({ page }) => {
   await login(page);
   for (const route of ["organizations", "seasons", "clubs", "venues", "officials"]) {
     await page.goto(`/admin/${route}`);
-    await expect(page.locator("main h1")).toBeVisible();
+    await expect(page.locator("main h1:visible").first()).toBeVisible();
   }
 });

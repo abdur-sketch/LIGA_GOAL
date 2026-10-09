@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     const organizationId = request.nextUrl.searchParams.get("organizationId");
     if (!actor.isPlatformAdmin) {
       if (!organizationId) throw new ApiError(400, "organizationId wajib diisi.");
-      const permissions: PermissionKey[] = ["organization.update", "competition.update", "club.update", "venue.update", "official.update"];
+      const permissions: PermissionKey[] = ["organization.update", "competition.update", "club.update", "venue.update", "official.update", "player.update", "player_document.upload"];
       const allowed = (await Promise.all(permissions.map((permission) => hasPermission(actor.id, organizationId, permission)))).some(Boolean);
       if (!allowed) throw new ApiError(403, "Tidak memiliki izin unggah pada organisasi ini.");
     }

@@ -20,6 +20,8 @@
   --color-primary: var(--primary);
   --color-gold: var(--gold);
   --color-navy: var(--navy);
+  --color-card: var(--surface-soft);
+  --color-accent: var(--primary);
   --font-sans: var(--font-inter);
   --font-display: var(--font-sora);
 }
@@ -35,3 +37,27 @@ body {
 }
 button, a { -webkit-tap-highlight-color: transparent; }
 ::selection { color: #0b1422; background: #39e49a; }
+
+.field {
+  width: 100%;
+  border: 1px solid rgb(148 163 184 / 0.2);
+  border-radius: 0.75rem;
+  background: rgb(255 255 255 / 0.04);
+  padding: 0.7rem 0.85rem;
+  color: white;
+  outline: none;
+}
+.field:focus { border-color: rgb(57 228 154 / 0.65); }
+.btn-primary, .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border-radius: 0.75rem;
+  padding: 0.7rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+.btn-primary { background: var(--primary); color: #07140f; }
+.btn-primary:disabled { cursor: not-allowed; opacity: 0.55; }
+.btn-secondary { border: 1px solid rgb(148 163 184 / 0.2); background: rgb(255 255 255 / 0.04); color: white; }

@@ -11,5 +11,6 @@ test-results
 *.log
 *.tsbuildinfo
 .uploads
+.private-uploads
 .DS_Store
 prisma/*.db
