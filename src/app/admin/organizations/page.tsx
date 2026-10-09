@@ -1,0 +1,2 @@
+import { PageShell } from "@/components/admin/page-shell"; import { ResourceManager } from "@/components/admin/resource-manager"; import { membershipsConfig, organizationsConfig } from "@/components/admin/configs";
+export default function Page() { return <PageShell eyebrow="Platform" title="Manajemen organisasi" description="Kelola tenant, owner, dan anggota tanpa membuka akses lintas organisasi."><ResourceManager config={organizationsConfig} /><ResourceManager config={membershipsConfig} /></PageShell>; }

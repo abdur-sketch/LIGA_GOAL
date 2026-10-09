@@ -1,0 +1,2 @@
+import { PageShell } from "@/components/admin/page-shell"; import { ResourceManager } from "@/components/admin/resource-manager"; import { venuesConfig } from "@/components/admin/configs";
+export default function Page() { return <PageShell eyebrow="Venue" title="Venue pertandingan" description="Data stadion dan lapangan menjadi dasar pemeriksaan jadwal Phase 3."><ResourceManager config={venuesConfig} /></PageShell>; }

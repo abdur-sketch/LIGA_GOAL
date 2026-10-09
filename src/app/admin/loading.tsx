@@ -1,0 +1,1 @@
+export default function Loading() { return <main className="p-5 lg:p-8"><div className="h-9 w-64 animate-pulse rounded-lg bg-white/5" /><div className="mt-8 space-y-3">{[1, 2, 3].map((item) => <div key={item} className="h-20 animate-pulse rounded-2xl bg-white/5" />)}</div></main>; }

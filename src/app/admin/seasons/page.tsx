@@ -1,0 +1,2 @@
+import { PageShell } from "@/components/admin/page-shell"; import { ResourceManager } from "@/components/admin/resource-manager"; import { seasonsConfig } from "@/components/admin/configs";
+export default function Page() { return <PageShell eyebrow="Musim" title="Manajemen musim" description="Sistem poin dan tie-breaker tersimpan per musim."><ResourceManager config={seasonsConfig} /></PageShell>; }

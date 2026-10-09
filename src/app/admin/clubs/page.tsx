@@ -1,0 +1,2 @@
+import { PageShell } from "@/components/admin/page-shell"; import { ResourceManager } from "@/components/admin/resource-manager"; import { clubsConfig } from "@/components/admin/configs";
+export default function Page() { return <PageShell eyebrow="Klub" title="Direktori klub" description="Satu identitas klub dapat digunakan pada banyak musim."><ResourceManager config={clubsConfig} /></PageShell>; }

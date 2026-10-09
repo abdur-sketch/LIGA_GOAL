@@ -1,0 +1,2 @@
+import { PageShell } from "@/components/admin/page-shell"; import { ResourceManager } from "@/components/admin/resource-manager"; import { competitionsConfig, participationsConfig } from "@/components/admin/configs";
+export default function Page() { return <PageShell eyebrow="Kompetisi" title="Kompetisi & peserta" description="Atur kompetisi serta daftarkan klub permanen ke musim yang sesuai."><ResourceManager config={competitionsConfig} /><ResourceManager config={participationsConfig} /></PageShell>; }

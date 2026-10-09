@@ -1,0 +1,537 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrganizationStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum CompetitionStatus {
+  DRAFT
+  REGISTRATION
+  ONGOING
+  COMPLETED
+  ARCHIVED
+}
+
+enum SeasonStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum ParticipationStatus {
+  PENDING
+  APPROVED
+  WITHDRAWN
+}
+
+enum VenueStatus {
+  AVAILABLE
+  MAINTENANCE
+  INACTIVE
+}
+
+enum OfficialRole {
+  HEAD_COACH
+  ASSISTANT_COACH
+  CLUB_MANAGER
+  REFEREE
+  ASSISTANT_REFEREE
+  MATCH_COMMISSIONER
+  OTHER
+}
+
+enum CompetitionFormat {
+  SINGLE_ROUND_ROBIN
+  DOUBLE_ROUND_ROBIN
+  GROUP_STAGE
+  SINGLE_ELIMINATION
+  GROUP_AND_KNOCKOUT
+}
+
+enum MatchStatus {
+  SCHEDULED
+  LINEUP_CONFIRMED
+  LIVE_FIRST_HALF
+  HALF_TIME
+  LIVE_SECOND_HALF
+  EXTRA_TIME
+  PENALTY_SHOOTOUT
+  FINISHED_PENDING_APPROVAL
+  OFFICIAL
+  POSTPONED
+  CANCELLED
+  ABANDONED
+}
+
+enum RegistrationStatus {
+  DRAFT
+  SUBMITTED
+  VERIFIED
+  REJECTED
+  SUSPENDED
+}
+
+enum AvailabilityStatus {
+  AVAILABLE
+  INJURED
+  RECOVERING
+  SUSPENDED
+  UNAVAILABLE
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGIN_FAILED
+  LOGOUT
+  APPROVE
+  REJECT
+  EXPORT
+}
+
+model User {
+  id                 String               @id @default(cuid())
+  email              String               @unique
+  name               String
+  passwordHash       String
+  image              String?
+  isPlatformAdmin    Boolean              @default(false)
+  isActive           Boolean              @default(true)
+  lastLoginAt        DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  deletedAt          DateTime?
+  memberships        OrganizationMember[]
+  overrides          UserPermission[]
+  auditLogs          AuditLog[]           @relation("AuditActor")
+  ownedOrganizations Organization[]       @relation("OrganizationOwner")
+}
+
+model Organization {
+  id               String               @id @default(cuid())
+  name             String
+  slug             String               @unique
+  status           OrganizationStatus   @default(PENDING)
+  logoUrl          String?
+  contactEmail     String?
+  contactPhone     String?
+  address          String?
+  ownerId          String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  deletedAt        DateTime?
+  memberships      OrganizationMember[]
+  roles            Role[]
+  competitions     Competition[]
+  clubs            Club[]
+  venues           Venue[]
+  auditLogs        AuditLog[]
+  owner            User?                @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  officials        Official[]
+  competitionClubs CompetitionClub[]
+
+  @@index([status, deletedAt])
+  @@index([ownerId])
+}
+
+model OrganizationMember {
+  id             String       @id @default(cuid())
+  organizationId String
+  userId         String
+  roleId         String
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           Role         @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, userId])
+  @@index([userId, isActive])
+}
+
+model Role {
+  id             String               @id @default(cuid())
+  organizationId String?
+  name           String
+  key            String
+  isSystem       Boolean              @default(false)
+  organization   Organization?        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members        OrganizationMember[]
+  permissions    RolePermission[]
+
+  @@unique([organizationId, key])
+}
+
+model Permission {
+  id            String           @id @default(cuid())
+  key           String           @unique
+  description   String
+  roleLinks     RolePermission[]
+  userOverrides UserPermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model UserPermission {
+  id             String     @id @default(cuid())
+  userId         String
+  permissionId   String
+  organizationId String
+  allowed        Boolean
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission     Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, permissionId, organizationId])
+  @@index([organizationId, userId])
+}
+
+model Competition {
+  id             String            @id @default(cuid())
+  organizationId String
+  name           String
+  slug           String
+  description    String?
+  logoUrl        String?
+  category       String?
+  location       String?
+  regulations    String?
+  format         CompetitionFormat
+  status         CompetitionStatus @default(DRAFT)
+  startsAt       DateTime?
+  endsAt         DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  deletedAt      DateTime?
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  seasons        Season[]
+  teams          Team[]
+  rules          CompetitionRule[]
+  articles       Article[]
+  clubEntries    CompetitionClub[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId, status, deletedAt])
+}
+
+model Season {
+  id                  String               @id @default(cuid())
+  competitionId       String
+  name                String
+  startsAt            DateTime
+  endsAt              DateTime
+  isActive            Boolean              @default(false)
+  status              SeasonStatus         @default(DRAFT)
+  regulations         String?
+  winPoints           Int                  @default(3)
+  drawPoints          Int                  @default(1)
+  lossPoints          Int                  @default(0)
+  tieBreakers         Json                 @default("[\"points\",\"goal_difference\",\"goals_for\"]")
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  competition         Competition          @relation(fields: [competitionId], references: [id], onDelete: Restrict)
+  stages              Stage[]
+  registrations       PlayerRegistration[]
+  clubEntries         CompetitionClub[]
+  officialAssignments OfficialAssignment[]
+
+  @@unique([competitionId, name])
+}
+
+model Stage {
+  id        String  @id @default(cuid())
+  seasonId  String
+  name      String
+  sortOrder Int
+  season    Season  @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  groups    Group[]
+  matches   Match[]
+
+  @@unique([seasonId, sortOrder])
+}
+
+model Group {
+  id      String  @id @default(cuid())
+  stageId String
+  name    String
+  stage   Stage   @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  matches Match[]
+
+  @@unique([stageId, name])
+}
+
+model CompetitionRule {
+  id            String      @id @default(cuid())
+  competitionId String
+  key           String
+  value         Json
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+
+  @@unique([competitionId, key])
+}
+
+model Club {
+  id                  String               @id @default(cuid())
+  organizationId      String
+  name                String
+  shortName           String
+  slug                String
+  logoUrl             String?
+  foundedYear         Int?
+  city                String?
+  description         String?
+  contactEmail        String?
+  contactPhone        String?
+  homeVenueId         String?
+  isActive            Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  deletedAt           DateTime?
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  teams               Team[]
+  players             Player[]
+  homeVenue           Venue?               @relation("ClubHomeVenue", fields: [homeVenueId], references: [id], onDelete: SetNull)
+  competitionEntries  CompetitionClub[]
+  officialAssignments OfficialAssignment[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId, deletedAt])
+  @@index([homeVenueId])
+}
+
+model CompetitionClub {
+  id             String              @id @default(cuid())
+  organizationId String
+  competitionId  String
+  seasonId       String
+  clubId         String
+  status         ParticipationStatus @default(PENDING)
+  registeredAt   DateTime            @default(now())
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  competition    Competition         @relation(fields: [competitionId], references: [id], onDelete: Restrict)
+  season         Season              @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  club           Club                @relation(fields: [clubId], references: [id], onDelete: Restrict)
+
+  @@unique([seasonId, clubId])
+  @@index([organizationId, competitionId, status])
+  @@index([clubId])
+}
+
+model Team {
+  id            String      @id @default(cuid())
+  competitionId String
+  clubId        String
+  name          String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Restrict)
+  club          Club        @relation(fields: [clubId], references: [id], onDelete: Restrict)
+  homeMatches   Match[]     @relation("HomeTeam")
+  awayMatches   Match[]     @relation("AwayTeam")
+
+  @@unique([competitionId, clubId])
+}
+
+model Player {
+  id             String               @id @default(cuid())
+  organizationId String
+  activeClubId   String?
+  fullName       String
+  dateOfBirth    DateTime?
+  position       String?
+  photoUrl       String?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  deletedAt      DateTime?
+  activeClub     Club?                @relation(fields: [activeClubId], references: [id], onDelete: SetNull)
+  registrations  PlayerRegistration[]
+  availability   PlayerAvailability[]
+
+  @@index([organizationId, activeClubId, deletedAt])
+}
+
+model PlayerRegistration {
+  id          String             @id @default(cuid())
+  seasonId    String
+  playerId    String
+  teamId      String
+  shirtNumber Int?
+  status      RegistrationStatus @default(DRAFT)
+  season      Season             @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  player      Player             @relation(fields: [playerId], references: [id], onDelete: Restrict)
+
+  @@unique([seasonId, playerId])
+  @@index([teamId, status])
+}
+
+model Venue {
+  id             String       @id @default(cuid())
+  organizationId String
+  name           String
+  address        String?
+  city           String?
+  capacity       Int?
+  surfaceType    String?
+  status         VenueStatus  @default(AVAILABLE)
+  photoUrl       String?
+  timezone       String       @default("Asia/Jakarta")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  matches        Match[]
+  homeClubs      Club[]       @relation("ClubHomeVenue")
+
+  @@index([organizationId, status, deletedAt])
+}
+
+model Official {
+  id             String               @id @default(cuid())
+  organizationId String
+  fullName       String
+  email          String?
+  phone          String?
+  photoUrl       String?
+  isActive       Boolean              @default(true)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  deletedAt      DateTime?
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  assignments    OfficialAssignment[]
+
+  @@unique([organizationId, email])
+  @@index([organizationId, isActive, deletedAt])
+}
+
+model OfficialAssignment {
+  id         String       @id @default(cuid())
+  officialId String
+  seasonId   String
+  clubId     String?
+  role       OfficialRole
+  startsAt   DateTime
+  endsAt     DateTime?
+  notes      String?
+  official   Official     @relation(fields: [officialId], references: [id], onDelete: Restrict)
+  season     Season       @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  club       Club?        @relation(fields: [clubId], references: [id], onDelete: Restrict)
+
+  @@unique([officialId, seasonId, role, clubId])
+  @@index([seasonId, role])
+  @@index([officialId, startsAt])
+}
+
+model Match {
+  id         String       @id @default(cuid())
+  stageId    String
+  groupId    String?
+  venueId    String?
+  homeTeamId String
+  awayTeamId String
+  kickoffAt  DateTime
+  status     MatchStatus  @default(SCHEDULED)
+  version    Int          @default(1)
+  stage      Stage        @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  group      Group?       @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  venue      Venue?       @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  homeTeam   Team         @relation("HomeTeam", fields: [homeTeamId], references: [id], onDelete: Restrict)
+  awayTeam   Team         @relation("AwayTeam", fields: [awayTeamId], references: [id], onDelete: Restrict)
+  events     MatchEvent[]
+
+  @@index([stageId, kickoffAt])
+  @@index([venueId, kickoffAt])
+}
+
+model MatchEvent {
+  id              String   @id @default(cuid())
+  matchId         String
+  idempotencyKey  String
+  eventType       String
+  teamId          String?
+  playerId        String?
+  relatedPlayerId String?
+  minute          Int
+  addedTime       Int      @default(0)
+  payload         Json?
+  isValid         Boolean  @default(true)
+  revision        Int      @default(1)
+  createdAt       DateTime @default(now())
+  match           Match    @relation(fields: [matchId], references: [id], onDelete: Restrict)
+
+  @@unique([matchId, idempotencyKey])
+  @@index([matchId, isValid, minute])
+}
+
+model PlayerAvailability {
+  id         String             @id @default(cuid())
+  playerId   String
+  status     AvailabilityStatus
+  publicNote String?
+  startsAt   DateTime
+  endsAt     DateTime?
+  player     Player             @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([playerId, startsAt])
+}
+
+model Article {
+  id            String       @id @default(cuid())
+  competitionId String?
+  title         String
+  slug          String       @unique
+  excerpt       String?
+  body          String
+  publishedAt   DateTime?
+  competition   Competition? @relation(fields: [competitionId], references: [id], onDelete: SetNull)
+}
+
+model AuditLog {
+  id             String        @id @default(cuid())
+  organizationId String?
+  actorId        String?
+  action         AuditAction
+  resourceType   String
+  resourceId     String?
+  requestId      String?
+  ipHash         String?
+  before         Json?
+  after          Json?
+  createdAt      DateTime      @default(now())
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  actor          User?         @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([actorId, createdAt])
+}
+
+model BackgroundJob {
+  id          String    @id @default(cuid())
+  type        String
+  payload     Json
+  status      String    @default("pending")
+  attempts    Int       @default(0)
+  runAfter    DateTime  @default(now())
+  lockedAt    DateTime?
+  completedAt DateTime?
+  lastError   String?
+
+  @@index([status, runAfter])
+}

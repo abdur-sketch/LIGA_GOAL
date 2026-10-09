@@ -1,0 +1,2 @@
+import { PageShell } from "@/components/admin/page-shell"; import { ResourceManager } from "@/components/admin/resource-manager"; import { assignmentsConfig, officialsConfig } from "@/components/admin/configs";
+export default function Page() { return <PageShell eyebrow="Ofisial" title="Personel & penugasan" description="Identitas personel dan histori tugas dikelola secara terpisah."><ResourceManager config={officialsConfig} /><ResourceManager config={assignmentsConfig} /></PageShell>; }

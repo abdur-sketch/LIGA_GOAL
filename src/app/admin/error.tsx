@@ -1,0 +1,2 @@
+"use client";
+export default function ErrorPage({ reset }: { reset: () => void }) { return <main className="grid min-h-[70vh] place-items-center p-6 text-center"><div><h2 className="font-display text-2xl font-bold">Halaman gagal dimuat</h2><p className="mt-2 text-sm text-muted">Coba muat ulang. Jika berulang, periksa log aplikasi.</p><button onClick={reset} className="mt-5 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-background">Coba lagi</button></div></main>; }

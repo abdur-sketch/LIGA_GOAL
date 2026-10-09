@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: liga_goal
+      POSTGRES_PASSWORD: local-only-password
+      POSTGRES_DB: liga_goal
+    ports:
+      - "5432:5432"
+    volumes:
+      - liga_goal_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U liga_goal"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  liga_goal_postgres:
