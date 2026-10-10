@@ -260,7 +260,124 @@ enum AvailabilityStatus {
   UNAVAILABLE
 }
 
+enum TransferType {
+  PERMANENT
+  LOAN
+  LOAN_RETURN
+  FREE_AGENT_SIGNING
+  REGISTRATION_RELEASE
+}
+
+enum TransferStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  SOURCE_CLUB_APPROVED
+  DESTINATION_CLUB_APPROVED
+  COMPETITION_APPROVED
+  COMPLETED
+  REJECTED
+  CANCELLED
+}
+
+enum TransferApprovalStep {
+  SOURCE_CLUB
+  DESTINATION_CLUB
+  COMPETITION
+  OVERRIDE
+}
+
+enum TransferApprovalStatus {
+  APPROVED
+  REJECTED
+}
+
+enum TransferWindowStatus {
+  OPEN
+  CLOSED
+}
+
+enum InjuryStatus {
+  OPEN
+  RECOVERING
+  CLEARED
+  CLOSED
+}
+
+enum ClearanceStatus {
+  APPROVED
+  REVOKED
+}
+
+enum DisciplinaryCaseStatus {
+  OPEN
+  DECIDED
+  APPEALED
+  CLOSED
+}
+
+enum DisciplinaryDecisionType {
+  WARNING
+  MATCH_BAN
+  DATE_SUSPENSION
+  POINT_PENALTY
+  DISMISSED
+}
+
+enum SuspensionType {
+  AUTOMATIC
+  MANUAL
+}
+
+enum SuspensionStatus {
+  ACTIVE
+  SERVED
+  CANCELLED
+}
+
+enum AppealStatus {
+  NONE
+  PENDING
+  UPHELD
+  REJECTED
+  WITHDRAWN
+}
+
+enum ArticleStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum PublicFollowType {
+  COMPETITION
+  CLUB
+  MATCH
+}
+
+enum NotificationType {
+  MATCH_STARTING_SOON
+  MATCH_STARTED
+  GOAL_SCORED
+  HALF_TIME
+  FULL_TIME
+  OFFICIAL_RESULT
+  SCHEDULE_CHANGED
+  MATCH_POSTPONED
+  MATCH_CANCELLED
+  COMPETITION_ANNOUNCEMENT
+}
+
+enum NotificationDeliveryStatus {
+  PENDING
+  DELIVERED
+  FAILED
+  SKIPPED
+}
+
 enum AuditAction {
+  VIEW
   CREATE
   UPDATE
   DELETE
@@ -280,6 +397,7 @@ model User {
   image                       String?
   isPlatformAdmin             Boolean                      @default(false)
   isActive                    Boolean                      @default(true)
+  sessionVersion              Int                          @default(0)
   lastLoginAt                 DateTime?
   createdAt                   DateTime                     @default(now())
   updatedAt                   DateTime                     @updatedAt
@@ -307,59 +425,104 @@ model User {
   computedStatisticsSnapshots StatisticsSnapshot[]         @relation("StatisticsSnapshotComputer")
   approvedPointAdjustments    PointAdjustment[]            @relation("PointAdjustmentApprover")
   statisticsRevisions         StatisticsRevision[]         @relation("StatisticsRevisionActor")
+  createdTransfers            TransferRequest[]            @relation("TransferCreator")
+  transferApprovals           TransferApproval[]           @relation("TransferApprovalActor")
+  transferHistory             TransferHistory[]            @relation("TransferHistoryActor")
+  transferOverrides           TransferRequest[]            @relation("TransferOverrideActor")
+  createdTransferWindows      TransferWindow[]             @relation("TransferWindowCreator")
+  availabilityChanges         PlayerAvailability[]         @relation("AvailabilityCreator")
+  createdInjuries             InjuryCase[]                 @relation("InjuryCreator")
+  injuryProgressUpdates       InjuryProgress[]             @relation("InjuryProgressActor")
+  medicalClearances           MedicalClearance[]           @relation("MedicalClearanceActor")
+  createdDisciplinaryCases    DisciplinaryCase[]           @relation("DisciplinaryCaseCreator")
+  disciplinaryDecisions       DisciplinaryDecision[]       @relation("DisciplinaryDecisionActor")
+  disciplinaryAppeals         DisciplinaryAppeal[]         @relation("DisciplinaryAppealActor")
+  issuedSuspensions           Suspension[]                 @relation("SuspensionIssuer")
+  createdArticles             Article[]                    @relation("ArticleCreator")
+  updatedArticles             Article[]                    @relation("ArticleUpdater")
+  articleRevisions            ArticleRevision[]
+  createdNotifications        Notification[]               @relation("NotificationCreator")
+  passwordResetTokens         PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt, usedAt])
 }
 
 model Organization {
-  id                  String                    @id @default(cuid())
-  name                String
-  slug                String                    @unique
-  status              OrganizationStatus        @default(PENDING)
-  logoUrl             String?
-  contactEmail        String?
-  contactPhone        String?
-  address             String?
-  ownerId             String?
-  createdAt           DateTime                  @default(now())
-  updatedAt           DateTime                  @updatedAt
-  deletedAt           DateTime?
-  memberships         OrganizationMember[]
-  roles               Role[]
-  competitions        Competition[]
-  clubs               Club[]
-  venues              Venue[]
-  auditLogs           AuditLog[]
-  owner               User?                     @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Restrict)
-  officials           Official[]
-  competitionClubs    CompetitionClub[]
-  players             Player[]
-  playerRegistrations PlayerRegistration[]
-  playerDocuments     PlayerDocument[]
-  rosterEntries       RosterEntry[]
-  eligibilityChecks   EligibilityCheck[]
-  registrationHistory RegistrationHistory[]
-  stages              Stage[]
-  groups              Group[]
-  groupMemberships    GroupMembership[]
-  fixtureGenerations  FixtureGeneration[]
-  fixtureDrafts       FixtureDraft[]
-  matches             Match[]
-  matchAssignments    MatchOfficialAssignment[]
-  scheduleHistory     MatchScheduleHistory[]
-  bracketTies         BracketTie[]
-  bracketSlots        BracketSlot[]
-  fixturePublications FixturePublication[]
-  matchLineups        MatchLineup[]
-  matchLineupPlayers  MatchLineupPlayer[]
-  matchEvents         MatchEvent[]
-  matchResults        MatchResult[]
-  matchApprovals      MatchApproval[]
-  matchCorrections    MatchCorrection[]
-  matchRealtimeOutbox MatchRealtimeOutbox[]
-  bracketLegs         BracketLeg[]
-  statisticsSnapshots StatisticsSnapshot[]
-  pointAdjustments    PointAdjustment[]
-  statisticsJobs      StatisticsRecomputeJob[]
-  statisticsRevisions StatisticsRevision[]
+  id                      String                    @id @default(cuid())
+  name                    String
+  slug                    String                    @unique
+  status                  OrganizationStatus        @default(PENDING)
+  logoUrl                 String?
+  contactEmail            String?
+  contactPhone            String?
+  address                 String?
+  ownerId                 String?
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime                  @updatedAt
+  deletedAt               DateTime?
+  memberships             OrganizationMember[]
+  roles                   Role[]
+  competitions            Competition[]
+  clubs                   Club[]
+  venues                  Venue[]
+  auditLogs               AuditLog[]
+  owner                   User?                     @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  officials               Official[]
+  competitionClubs        CompetitionClub[]
+  players                 Player[]
+  playerRegistrations     PlayerRegistration[]
+  playerDocuments         PlayerDocument[]
+  rosterEntries           RosterEntry[]
+  eligibilityChecks       EligibilityCheck[]
+  registrationHistory     RegistrationHistory[]
+  stages                  Stage[]
+  groups                  Group[]
+  groupMemberships        GroupMembership[]
+  fixtureGenerations      FixtureGeneration[]
+  fixtureDrafts           FixtureDraft[]
+  matches                 Match[]
+  matchAssignments        MatchOfficialAssignment[]
+  scheduleHistory         MatchScheduleHistory[]
+  bracketTies             BracketTie[]
+  bracketSlots            BracketSlot[]
+  fixturePublications     FixturePublication[]
+  matchLineups            MatchLineup[]
+  matchLineupPlayers      MatchLineupPlayer[]
+  matchEvents             MatchEvent[]
+  matchResults            MatchResult[]
+  matchApprovals          MatchApproval[]
+  matchCorrections        MatchCorrection[]
+  matchRealtimeOutbox     MatchRealtimeOutbox[]
+  bracketLegs             BracketLeg[]
+  statisticsSnapshots     StatisticsSnapshot[]
+  pointAdjustments        PointAdjustment[]
+  statisticsJobs          StatisticsRecomputeJob[]
+  statisticsRevisions     StatisticsRevision[]
+  transferWindows         TransferWindow[]
+  transferRequests        TransferRequest[]
+  transferApprovals       TransferApproval[]
+  transferHistory         TransferHistory[]
+  playerAvailability      PlayerAvailability[]
+  injuryCases             InjuryCase[]
+  disciplinaryCases       DisciplinaryCase[]
+  suspensions             Suspension[]
+  articles                Article[]
+  articleRevisions        ArticleRevision[]
+  publicFollows           PublicFollow[]
+  notificationPreferences NotificationPreference[]
+  notifications           Notification[]
+  notificationDeliveries  NotificationDelivery[]
+  pushSubscriptions       PushSubscription[]
 
   @@index([status, deletedAt])
   @@index([ownerId])
@@ -454,6 +617,12 @@ model Competition {
   statisticsSnapshots StatisticsSnapshot[]
   pointAdjustments    PointAdjustment[]
   statisticsJobs      StatisticsRecomputeJob[]
+  transferWindows     TransferWindow[]
+  transferRequests    TransferRequest[]
+  disciplinaryCases   DisciplinaryCase[]
+  suspensions         Suspension[]
+  publicFollows       PublicFollow[]
+  notifications       Notification[]
 
   @@unique([organizationId, slug])
   @@index([organizationId, status, deletedAt])
@@ -485,6 +654,10 @@ model Season {
   statisticsSnapshots StatisticsSnapshot[]
   pointAdjustments    PointAdjustment[]
   statisticsJobs      StatisticsRecomputeJob[]
+  transferWindows     TransferWindow[]
+  transferRequests    TransferRequest[]
+  disciplinaryCases   DisciplinaryCase[]
+  suspensions         Suspension[]
 
   @@unique([competitionId, name])
 }
@@ -596,6 +769,10 @@ model Club {
   teamStatisticsRows   TeamStatisticsRow[]
   playerStatisticsRows PlayerStatisticsRow[]
   pointAdjustments     PointAdjustment[]
+  outgoingTransfers    TransferRequest[]     @relation("TransferSourceClub")
+  incomingTransfers    TransferRequest[]     @relation("TransferDestinationClub")
+  publicFollows        PublicFollow[]
+  notifications        Notification[]
 
   @@unique([organizationId, slug])
   @@index([organizationId, deletedAt])
@@ -668,6 +845,10 @@ model Player {
   matchEvents        MatchEvent[]          @relation("MatchEventPlayer")
   relatedMatchEvents MatchEvent[]          @relation("MatchEventRelatedPlayer")
   statisticsRows     PlayerStatisticsRow[]
+  transfers          TransferRequest[]
+  injuryCases        InjuryCase[]
+  disciplinaryCases  DisciplinaryCase[]
+  suspensions        Suspension[]
 
   @@index([organizationId, activeClubId, deletedAt])
 }
@@ -716,8 +897,8 @@ model PlayerRegistration {
   eligibilityChecks  EligibilityCheck[]
   lineupEntries      MatchLineupPlayer[]
 
-  @@unique([seasonId, playerId])
   @@unique([organizationId, idempotencyKey])
+  @@index([seasonId, playerId, status])
   @@index([organizationId, competitionId, seasonId, clubId, status], map: "PlayerRegistration_organizationId_competitionId_seasonId_clubId")
   @@index([playerId, registrationDate])
 }
@@ -930,6 +1111,10 @@ model Match {
   clockState          MatchClockState?
   realtimeOutbox      MatchRealtimeOutbox[]
   bracketLeg          BracketLeg?
+  disciplinaryCases   DisciplinaryCase[]
+  suspensionServices  SuspensionService[]
+  publicFollows       PublicFollow[]
+  notifications       Notification[]
 
   @@unique([seasonId, matchNumber])
   @@index([stageId, kickoffAt])
@@ -1175,31 +1360,32 @@ model MatchLineupRevision {
 }
 
 model MatchEvent {
-  id              String               @id @default(cuid())
-  organizationId  String
-  matchId         String
-  idempotencyKey  String
-  eventType       MatchEventType
-  period          MatchPeriod
-  teamId          String?
-  playerId        String?
-  relatedPlayerId String?
-  minute          Int
-  addedTime       Int                  @default(0)
-  payload         Json?
-  isValid         Boolean              @default(true)
-  revision        Int                  @default(1)
-  operatorId      String?
-  occurredAt      DateTime             @default(now())
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
-  organization    Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  match           Match                @relation(fields: [matchId], references: [id], onDelete: Restrict)
-  team            Team?                @relation(fields: [teamId], references: [id], onDelete: Restrict)
-  player          Player?              @relation("MatchEventPlayer", fields: [playerId], references: [id], onDelete: Restrict)
-  relatedPlayer   Player?              @relation("MatchEventRelatedPlayer", fields: [relatedPlayerId], references: [id], onDelete: Restrict)
-  operator        User?                @relation("MatchEventOperator", fields: [operatorId], references: [id], onDelete: Restrict)
-  revisions       MatchEventRevision[]
+  id                String               @id @default(cuid())
+  organizationId    String
+  matchId           String
+  idempotencyKey    String
+  eventType         MatchEventType
+  period            MatchPeriod
+  teamId            String?
+  playerId          String?
+  relatedPlayerId   String?
+  minute            Int
+  addedTime         Int                  @default(0)
+  payload           Json?
+  isValid           Boolean              @default(true)
+  revision          Int                  @default(1)
+  operatorId        String?
+  occurredAt        DateTime             @default(now())
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  organization      Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  match             Match                @relation(fields: [matchId], references: [id], onDelete: Restrict)
+  team              Team?                @relation(fields: [teamId], references: [id], onDelete: Restrict)
+  player            Player?              @relation("MatchEventPlayer", fields: [playerId], references: [id], onDelete: Restrict)
+  relatedPlayer     Player?              @relation("MatchEventRelatedPlayer", fields: [relatedPlayerId], references: [id], onDelete: Restrict)
+  operator          User?                @relation("MatchEventOperator", fields: [operatorId], references: [id], onDelete: Restrict)
+  revisions         MatchEventRevision[]
+  disciplinaryCases DisciplinaryCase[]
 
   @@unique([matchId, idempotencyKey])
   @@index([organizationId, matchId, isValid, minute, addedTime])
@@ -1307,16 +1493,283 @@ model MatchRealtimeOutbox {
   @@index([organizationId, matchId, sequence])
 }
 
-model PlayerAvailability {
-  id         String             @id @default(cuid())
-  playerId   String
-  status     AvailabilityStatus
-  publicNote String?
-  startsAt   DateTime
-  endsAt     DateTime?
-  player     Player             @relation(fields: [playerId], references: [id], onDelete: Cascade)
+model TransferWindow {
+  id                   String               @id @default(cuid())
+  organizationId       String
+  competitionId        String
+  seasonId             String
+  name                 String
+  opensAt              DateTime
+  closesAt             DateTime
+  registrationDeadline DateTime?
+  status               TransferWindowStatus @default(OPEN)
+  rules                Json                 @default("{}")
+  version              Int                  @default(1)
+  createdById          String
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  organization         Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  competition          Competition          @relation(fields: [competitionId], references: [id], onDelete: Restrict)
+  season               Season               @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  createdBy            User                 @relation("TransferWindowCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  transfers            TransferRequest[]
 
-  @@index([playerId, startsAt])
+  @@unique([seasonId, name])
+  @@index([organizationId, competitionId, seasonId, status, opensAt, closesAt])
+}
+
+model TransferRequest {
+  id                String             @id @default(cuid())
+  organizationId    String
+  competitionId     String
+  seasonId          String
+  playerId          String
+  sourceClubId      String?
+  destinationClubId String?
+  transferWindowId  String?
+  idempotencyKey    String
+  type              TransferType
+  status            TransferStatus     @default(DRAFT)
+  requestedAt       DateTime           @default(now())
+  effectiveAt       DateTime?
+  supportingDocs    Json               @default("[]")
+  rejectionReason   String?
+  overrideReason    String?
+  overrideById      String?
+  version           Int                @default(1)
+  createdById       String
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  competition       Competition        @relation(fields: [competitionId], references: [id], onDelete: Restrict)
+  season            Season             @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  player            Player             @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  sourceClub        Club?              @relation("TransferSourceClub", fields: [sourceClubId], references: [id], onDelete: Restrict)
+  destinationClub   Club?              @relation("TransferDestinationClub", fields: [destinationClubId], references: [id], onDelete: Restrict)
+  transferWindow    TransferWindow?    @relation(fields: [transferWindowId], references: [id], onDelete: Restrict)
+  createdBy         User               @relation("TransferCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  overrideBy        User?              @relation("TransferOverrideActor", fields: [overrideById], references: [id], onDelete: Restrict)
+  approvals         TransferApproval[]
+  history           TransferHistory[]
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, competitionId, seasonId, status, requestedAt])
+  @@index([playerId, seasonId, status])
+}
+
+model TransferApproval {
+  id             String                 @id @default(cuid())
+  organizationId String
+  transferId     String
+  step           TransferApprovalStep
+  status         TransferApprovalStatus
+  actorId        String
+  notes          String?
+  createdAt      DateTime               @default(now())
+  organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  transfer       TransferRequest        @relation(fields: [transferId], references: [id], onDelete: Restrict)
+  actor          User                   @relation("TransferApprovalActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@unique([transferId, step])
+  @@index([organizationId, transferId, createdAt])
+}
+
+model TransferHistory {
+  id             String          @id @default(cuid())
+  organizationId String
+  transferId     String
+  actorId        String?
+  fromStatus     TransferStatus?
+  toStatus       TransferStatus
+  action         String
+  snapshot       Json
+  createdAt      DateTime        @default(now())
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  transfer       TransferRequest @relation(fields: [transferId], references: [id], onDelete: Restrict)
+  actor          User?           @relation("TransferHistoryActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, transferId, createdAt])
+}
+
+model PlayerAvailability {
+  id             String             @id @default(cuid())
+  organizationId String
+  playerId       String
+  status         AvailabilityStatus
+  reason         String
+  sourceType     String?
+  sourceId       String?
+  publicNote     String?
+  publicApproved Boolean            @default(false)
+  startsAt       DateTime
+  endsAt         DateTime?
+  createdById    String?
+  createdAt      DateTime           @default(now())
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  player         Player             @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  createdBy      User?              @relation("AvailabilityCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([sourceType, sourceId])
+  @@index([organizationId, playerId, startsAt, endsAt])
+  @@index([sourceType, sourceId])
+}
+
+model InjuryCase {
+  id              String             @id @default(cuid())
+  organizationId  String
+  playerId        String
+  status          InjuryStatus       @default(OPEN)
+  injuryDate      DateTime
+  estimatedReturn DateTime?
+  actualReturn    DateTime?
+  diagnosis       String?
+  medicalNotes    String?
+  publicNote      String?
+  publicApproved  Boolean            @default(false)
+  version         Int                @default(1)
+  createdById     String
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  organization    Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  player          Player             @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  createdBy       User               @relation("InjuryCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  progress        InjuryProgress[]
+  clearances      MedicalClearance[]
+
+  @@index([organizationId, playerId, status, injuryDate])
+}
+
+model InjuryProgress {
+  id           String       @id @default(cuid())
+  injuryId     String
+  status       InjuryStatus
+  privateNotes String?
+  publicNote   String?
+  actorId      String
+  recordedAt   DateTime     @default(now())
+  injury       InjuryCase   @relation(fields: [injuryId], references: [id], onDelete: Restrict)
+  actor        User         @relation("InjuryProgressActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([injuryId, recordedAt])
+}
+
+model MedicalClearance {
+  id        String          @id @default(cuid())
+  injuryId  String
+  status    ClearanceStatus @default(APPROVED)
+  clearedAt DateTime
+  notes     String?
+  actorId   String
+  createdAt DateTime        @default(now())
+  injury    InjuryCase      @relation(fields: [injuryId], references: [id], onDelete: Restrict)
+  actor     User            @relation("MedicalClearanceActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([injuryId, clearedAt])
+}
+
+model DisciplinaryCase {
+  id             String                 @id @default(cuid())
+  organizationId String
+  competitionId  String
+  seasonId       String
+  playerId       String
+  matchId        String?
+  eventId        String?
+  sourceKey      String
+  cardType       MatchEventType?
+  status         DisciplinaryCaseStatus @default(OPEN)
+  summary        String
+  createdById    String
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  competition    Competition            @relation(fields: [competitionId], references: [id], onDelete: Restrict)
+  season         Season                 @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  player         Player                 @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  match          Match?                 @relation(fields: [matchId], references: [id], onDelete: Restrict)
+  event          MatchEvent?            @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  createdBy      User                   @relation("DisciplinaryCaseCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  decisions      DisciplinaryDecision[]
+  appeals        DisciplinaryAppeal[]
+  suspensions    Suspension[]
+
+  @@unique([organizationId, sourceKey])
+  @@index([organizationId, competitionId, seasonId, playerId, status])
+}
+
+model DisciplinaryDecision {
+  id           String                   @id @default(cuid())
+  caseId       String
+  type         DisciplinaryDecisionType
+  reason       String
+  matchBans    Int?
+  startsAt     DateTime?
+  endsAt       DateTime?
+  pointPenalty Int?
+  approvedById String
+  createdAt    DateTime                 @default(now())
+  case         DisciplinaryCase         @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  approvedBy   User                     @relation("DisciplinaryDecisionActor", fields: [approvedById], references: [id], onDelete: Restrict)
+
+  @@index([caseId, createdAt])
+}
+
+model DisciplinaryAppeal {
+  id         String           @id @default(cuid())
+  caseId     String
+  status     AppealStatus     @default(PENDING)
+  reason     String
+  resolution String?
+  actorId    String
+  createdAt  DateTime         @default(now())
+  resolvedAt DateTime?
+  case       DisciplinaryCase @relation(fields: [caseId], references: [id], onDelete: Restrict)
+  actor      User             @relation("DisciplinaryAppealActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([caseId, status, createdAt])
+}
+
+model Suspension {
+  id                 String              @id @default(cuid())
+  organizationId     String
+  competitionId      String
+  seasonId           String
+  playerId           String
+  disciplinaryCaseId String?
+  type               SuspensionType
+  status             SuspensionStatus    @default(ACTIVE)
+  appealStatus       AppealStatus        @default(NONE)
+  reason             String
+  sourceKey          String
+  effectiveAt        DateTime
+  endsAt             DateTime?
+  originalMatchBans  Int?
+  remainingMatchBans Int?
+  issuedById         String
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  competition        Competition         @relation(fields: [competitionId], references: [id], onDelete: Restrict)
+  season             Season              @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  player             Player              @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  disciplinaryCase   DisciplinaryCase?   @relation(fields: [disciplinaryCaseId], references: [id], onDelete: Restrict)
+  issuedBy           User                @relation("SuspensionIssuer", fields: [issuedById], references: [id], onDelete: Restrict)
+  services           SuspensionService[]
+
+  @@unique([organizationId, sourceKey])
+  @@index([organizationId, competitionId, seasonId, playerId, status])
+}
+
+model SuspensionService {
+  id           String     @id @default(cuid())
+  suspensionId String
+  matchId      String
+  servedAt     DateTime   @default(now())
+  suspension   Suspension @relation(fields: [suspensionId], references: [id], onDelete: Restrict)
+  match        Match      @relation(fields: [matchId], references: [id], onDelete: Restrict)
+
+  @@unique([suspensionId, matchId])
+  @@index([matchId])
 }
 
 model StatisticsSnapshot {
@@ -1511,14 +1964,143 @@ model StatisticsRevision {
 }
 
 model Article {
-  id            String       @id @default(cuid())
-  competitionId String?
-  title         String
-  slug          String       @unique
-  excerpt       String?
-  body          String
-  publishedAt   DateTime?
-  competition   Competition? @relation(fields: [competitionId], references: [id], onDelete: SetNull)
+  id             String            @id @default(cuid())
+  organizationId String?
+  competitionId  String?
+  title          String
+  slug           String
+  excerpt        String?
+  body           String
+  category       String            @default("Berita")
+  coverUrl       String?
+  status         ArticleStatus     @default(DRAFT)
+  scheduledAt    DateTime?
+  publishedAt    DateTime?
+  archivedAt     DateTime?
+  createdById    String?
+  updatedById    String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  organization   Organization?     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  competition    Competition?      @relation(fields: [competitionId], references: [id], onDelete: SetNull)
+  createdBy      User?             @relation("ArticleCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy      User?             @relation("ArticleUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  revisions      ArticleRevision[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId, status, publishedAt])
+  @@index([competitionId, status])
+}
+
+model ArticleRevision {
+  id             String       @id @default(cuid())
+  organizationId String
+  articleId      String
+  actorId        String?
+  version        Int
+  snapshot       Json
+  reason         String?
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  article        Article      @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  actor          User?        @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@unique([articleId, version])
+  @@index([organizationId, articleId, createdAt])
+}
+
+model PublicFollow {
+  id             String           @id @default(cuid())
+  organizationId String
+  anonymousKey   String
+  type           PublicFollowType
+  targetId       String
+  competitionId  String?
+  clubId         String?
+  matchId        String?
+  createdAt      DateTime         @default(now())
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  competition    Competition?     @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  club           Club?            @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  match          Match?           @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, anonymousKey, type, targetId])
+  @@index([organizationId, type, targetId])
+}
+
+model NotificationPreference {
+  id             String       @id @default(cuid())
+  organizationId String
+  anonymousKey   String
+  enabled        Boolean      @default(true)
+  eventTypes     Json         @default("[]")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, anonymousKey])
+  @@index([anonymousKey, enabled])
+}
+
+model Notification {
+  id             String                 @id @default(cuid())
+  organizationId String
+  competitionId  String?
+  clubId         String?
+  matchId        String?
+  type           NotificationType
+  title          String
+  body           String
+  sourceKey      String
+  publishedAt    DateTime?
+  createdById    String?
+  createdAt      DateTime               @default(now())
+  organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  competition    Competition?           @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  club           Club?                  @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  match          Match?                 @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  createdBy      User?                  @relation("NotificationCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  deliveries     NotificationDelivery[]
+
+  @@unique([organizationId, sourceKey])
+  @@index([organizationId, publishedAt])
+  @@index([matchId, type])
+}
+
+model NotificationDelivery {
+  id             String                     @id @default(cuid())
+  organizationId String
+  notificationId String
+  anonymousKey   String
+  status         NotificationDeliveryStatus @default(PENDING)
+  attempts       Int                        @default(0)
+  deliveredAt    DateTime?
+  readAt         DateTime?
+  retryAt        DateTime?
+  lastError      String?
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+  organization   Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  notification   Notification               @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, anonymousKey])
+  @@index([organizationId, anonymousKey, readAt, createdAt], map: "NotificationDelivery_organizationId_anonymousKey_readAt_created")
+  @@index([status, retryAt])
+}
+
+model PushSubscription {
+  id             String       @id @default(cuid())
+  organizationId String
+  anonymousKey   String
+  endpointHash   String
+  encryptedData  String
+  enabled        Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, endpointHash])
+  @@index([organizationId, anonymousKey, enabled])
 }
 
 model AuditLog {
@@ -1552,4 +2134,13 @@ model BackgroundJob {
   lastError   String?
 
   @@index([status, runAfter])
+}
+
+model RateLimitBucket {
+  key       String   @id
+  count     Int
+  expiresAt DateTime
+  updatedAt DateTime @updatedAt
+
+  @@index([expiresAt])
 }

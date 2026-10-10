@@ -113,7 +113,7 @@ export async function POST(request: NextRequest, context: Context) {
     const options = query(request);
     const [id, action, detail] = segments;
     if (!id) throw new ApiError(400, "ID wajib diisi.");
-    enforceMutationRateLimit(
+    await enforceMutationRateLimit(
       `${actor.id}:phase4:${resource}:${action || "create"}`,
       60,
     );
@@ -176,7 +176,7 @@ export async function PUT(request: NextRequest, context: Context) {
     const options = query(request);
     const [id, action, detail] = segments;
     if (!id) throw new ApiError(400, "ID wajib diisi.");
-    enforceMutationRateLimit(`${actor.id}:phase4:${resource}:update`, 40);
+    await enforceMutationRateLimit(`${actor.id}:phase4:${resource}:update`, 40);
     const body = await request.json();
     if (resource === "matches" && action === "lineups")
       return NextResponse.json({

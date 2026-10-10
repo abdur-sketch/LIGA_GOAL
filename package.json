@@ -16,7 +16,9 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "admin:bootstrap": "tsx scripts/bootstrap-admin.ts",
-    "statistics:reconcile": "tsx scripts/reconcile-statistics.ts"
+    "statistics:reconcile": "tsx scripts/reconcile-statistics.ts",
+    "env:check": "tsx scripts/validate-env.ts",
+    "load:test": "node scripts/load-test.mjs"
   },
   "dependencies": {
     "@prisma/client": "6.12.0",

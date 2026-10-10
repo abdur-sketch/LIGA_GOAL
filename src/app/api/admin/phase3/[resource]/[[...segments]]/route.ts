@@ -133,7 +133,7 @@ export async function POST(request: NextRequest, context: Context) {
     ]);
     const options = query(request);
     const [id, action] = segments;
-    enforceMutationRateLimit(`${actor.id}:phase3:${resource}`, 30);
+    await enforceMutationRateLimit(`${actor.id}:phase3:${resource}`, 30);
     const body = await request.json();
     if (resource === "stages" && !id)
       return NextResponse.json(
@@ -217,7 +217,7 @@ export async function PUT(request: NextRequest, context: Context) {
     const options = query(request);
     const id = segments[0];
     if (!id) throw new ApiError(400, "ID wajib diisi.");
-    enforceMutationRateLimit(`${actor.id}:phase3:${resource}:update`, 20);
+    await enforceMutationRateLimit(`${actor.id}:phase3:${resource}:update`, 20);
     const body = await request.json();
     if (resource === "formats")
       return NextResponse.json({
@@ -250,7 +250,7 @@ export async function DELETE(request: NextRequest, context: Context) {
     const id = segments[0];
     if (resource !== "memberships" || !id)
       throw new ApiError(404, "Endpoint tidak ditemukan.");
-    enforceMutationRateLimit(`${actor.id}:phase3:membership:delete`, 20);
+    await enforceMutationRateLimit(`${actor.id}:phase3:membership:delete`, 20);
     return NextResponse.json({
       data: await removeGroupClub(
         actor,

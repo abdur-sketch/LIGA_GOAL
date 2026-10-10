@@ -2,6 +2,9 @@ import { Bell, Menu } from "lucide-react";
 import { requireSession } from "@/lib/auth/guards";
 import { AdminSidebar } from "@/components/admin/sidebar";
 import { OrganizationProvider, OrganizationSelect } from "@/components/admin/organization-context";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();

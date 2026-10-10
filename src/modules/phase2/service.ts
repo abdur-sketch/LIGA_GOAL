@@ -3,7 +3,8 @@ import { db } from "@/lib/db";
 import { ApiError, authorizeOrganization, capabilities, type getApiActor } from "@/lib/auth/api";
 import type { PermissionKey } from "@/lib/auth/permissions";
 import { competitionRulesSchema, documentMetaSchema, documentVerificationSchema, playerSchema, registrationSchema, rosterSchema, workflowSchema } from "./validation";
-import { evaluateEligibility, unavailableSuspensionGateway } from "./eligibility";
+import { evaluateEligibility } from "./eligibility";
+import { databaseSuspensionGateway } from "@/modules/phase6/eligibility";
 
 type Actor = Awaited<ReturnType<typeof getApiActor>>;
 export type Query = { organizationId: string; search: string; status?: string; page: number; pageSize: number; seasonId?: string; clubId?: string };
@@ -127,7 +128,7 @@ export async function runEligibility(actor: Actor, organizationId: string, regis
     db.playerRegistration.findFirst({ where: { id: { not: registration.id }, seasonId: registration.seasonId, playerId: registration.playerId, status: { notIn: ["REJECTED", "CANCELLED"] } } }).then(Boolean),
     db.rosterEntry.count({ where: { seasonId: registration.seasonId, clubId: registration.clubId, status: "ACTIVE" } }),
     registration.jerseyNumber == null ? Promise.resolve(false) : db.rosterEntry.findFirst({ where: { seasonId: registration.seasonId, clubId: registration.clubId, jerseyNumber: registration.jerseyNumber, status: "ACTIVE", registrationId: { not: registration.id } } }).then(Boolean),
-    unavailableSuspensionGateway.check(registration.playerId, registration.seasonId),
+    databaseSuspensionGateway.check(registration.playerId, registration.seasonId),
   ]);
   const check = evaluateEligibility({ status: registration.status, verificationStatus: registration.verificationStatus, dateOfBirth: registration.player.dateOfBirth, jerseyNumber: registration.jerseyNumber, clubApproved, duplicateActiveRegistration, activeSquadCount, jerseyConflict, approvedDocumentTypes: registration.documents.map((document) => document.type), now: new Date(), rules, forApproval, suspension });
   await db.$transaction([db.eligibilityCheck.create({ data: { organizationId, registrationId, result: check.result, reasons: json(check.reasons), ruleSnapshot: json({ ...rules, suspensionCheck: check.suspensionCheck }) } }), db.playerRegistration.update({ where: { id: registrationId }, data: { eligibilityStatus: check.result } })]);

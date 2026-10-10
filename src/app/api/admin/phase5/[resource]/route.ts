@@ -105,7 +105,7 @@ export async function POST(request: NextRequest, context: Context) {
       getApiActor(),
       request.json(),
     ]);
-    enforceMutationRateLimit(`${actor.id}:phase5:${resource}`, 20);
+    await enforceMutationRateLimit(`${actor.id}:phase5:${resource}`, 20);
     if (resource === "recompute") return NextResponse.json({ data: await recomputeStatistics(actor, body) });
     if (resource === "adjustments")
       return NextResponse.json({ data: await createPointAdjustment(actor, body) }, { status: 201 });

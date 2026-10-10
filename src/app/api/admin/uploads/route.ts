@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
   try {
     const actor = await getApiActor();
-    enforceMutationRateLimit(`${actor.id}:upload`, 12);
+    await enforceMutationRateLimit(`${actor.id}:upload`, 12);
     const organizationId = request.nextUrl.searchParams.get("organizationId");
     if (!actor.isPlatformAdmin) {
       if (!organizationId) throw new ApiError(400, "organizationId wajib diisi.");

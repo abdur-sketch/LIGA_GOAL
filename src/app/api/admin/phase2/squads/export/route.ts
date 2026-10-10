@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { ApiError, getApiActor } from "@/lib/auth/api";
 import { db } from "@/lib/db";
 import { listRoster } from "@/modules/phase2/service";
+import { enforceMutationRateLimit } from "@/lib/security/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,7 @@ function safeText(value: string) { return value.normalize("NFKD").replace(/[^\x2
 export async function GET(request: NextRequest) {
   try {
     const actor = await getApiActor(); const params = request.nextUrl.searchParams; const organizationId = params.get("organizationId"); if (!organizationId) throw new ApiError(400, "organizationId wajib diisi.");
+    await enforceMutationRateLimit(`${actor.id}:${organizationId}:roster-export`, 10, 60_000);
     const format = params.get("format") === "xlsx" ? "xlsx" : "pdf"; const result = await listRoster(actor, { organizationId, search: params.get("search") || "", status: "ACTIVE", seasonId: params.get("seasonId") || undefined, clubId: params.get("clubId") || undefined, page: 1, pageSize: 5000 });
     const rows = result.data; await db.auditLog.create({ data: { organizationId, actorId: actor.id, action: "EXPORT", resourceType: "Roster", after: { format, count: rows.length } } });
     if (format === "xlsx") {

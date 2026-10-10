@@ -1,18 +1,24 @@
 import Link from "next/link";
 import {
   Activity,
+  ArrowRightLeft,
+  Ban,
   Building2,
   CalendarDays,
   CalendarRange,
   ClipboardCheck,
   GitBranch,
+  Gavel,
   LandPlot,
   ListChecks,
   BarChart3,
   Medal,
+  Newspaper,
   ShieldCheck,
+  Stethoscope,
   Trophy,
   UserRound,
+  UserCheck,
   UserRoundCog,
   UsersRound,
 } from "lucide-react";
@@ -36,6 +42,13 @@ const navigation = [
   [Trophy, "Klasemen", "/admin/standings"],
   [BarChart3, "Statistik", "/admin/statistics"],
   [Medal, "Leaderboard", "/admin/leaderboards"],
+  [Newspaper, "Berita", "/admin/articles"],
+  [ArrowRightLeft, "Transfer", "/admin/transfers"],
+  [CalendarRange, "Transfer Window", "/admin/transfer-windows"],
+  [UserCheck, "Availability", "/admin/availability"],
+  [Stethoscope, "Cedera", "/admin/injuries"],
+  [Gavel, "Disiplin", "/admin/discipline"],
+  [Ban, "Suspensi", "/admin/suspensions"],
 ] as const;
 
 export function AdminSidebar() {

@@ -10,6 +10,11 @@ import { assertTransition, transitionsFrom } from "./lifecycle";
 import { validateLineup } from "./lineup";
 import { aggregateLegScores, calculateScore, determineWinner } from "./score";
 import { recomputeStatisticsFromOfficialResult } from "@/modules/phase5/service";
+import { eligibilityAt } from "@/modules/phase6/eligibility";
+import {
+  reconcileDiscipline,
+  serveSuspensionsForOfficialMatch,
+} from "@/modules/phase6/service";
 import {
   correctionRequestSchema,
   correctionReviewSchema,
@@ -247,7 +252,7 @@ export async function eligiblePlayers(
         ? match.awayTeam
         : null;
   if (!team) throw new ApiError(400, "Tim tidak mengikuti pertandingan ini.");
-  return db.playerRegistration.findMany({
+  const registrations = await db.playerRegistration.findMany({
     where: {
       organizationId,
       seasonId: match.seasonId,
@@ -272,6 +277,18 @@ export async function eligiblePlayers(
     },
     orderBy: { player: { fullName: "asc" } },
   });
+  const checks = await Promise.all(
+    registrations.map((registration) =>
+      eligibilityAt(
+        organizationId,
+        registration.player.id,
+        match.seasonId,
+        team.clubId,
+        match.kickoffAt,
+      ),
+    ),
+  );
+  return registrations.filter((_, index) => checks[index]?.result === "ELIGIBLE");
 }
 
 export async function saveLineup(
@@ -310,19 +327,19 @@ export async function saveLineup(
     },
   });
   const byId = new Map(registrations.map((item) => [item.id, item]));
-  const at = match.kickoffAt || new Date();
-  const unavailable = new Set(
-    (
-      await db.playerAvailability.findMany({
-        where: {
-          playerId: { in: data.players.map((item) => item.playerId) },
-          status: { in: ["INJURED", "SUSPENDED", "UNAVAILABLE"] },
-          startsAt: { lte: at },
-          OR: [{ endsAt: null }, { endsAt: { gte: at } }],
-        },
-        select: { playerId: true },
-      })
-    ).map((item) => item.playerId),
+  const eligibility = new Map(
+    await Promise.all(
+      data.players.map(async (item) => [
+        item.playerId,
+        await eligibilityAt(
+          organizationId,
+          item.playerId,
+          match.seasonId,
+          team.clubId,
+          match.kickoffAt,
+        ),
+      ] as const),
+    ),
   );
   const matchRules = await rules(match.competitionId);
   const candidates = data.players.map((item) => {
@@ -335,7 +352,7 @@ export async function saveLineup(
         registration.clubId === team.clubId &&
         registration.status === "APPROVED" &&
         registration.eligibilityStatus === "ELIGIBLE" &&
-        !unavailable.has(item.playerId),
+        eligibility.get(item.playerId)?.result === "ELIGIBLE",
     };
   });
   const errors = validateLineup(
@@ -419,6 +436,36 @@ export async function saveLineup(
   );
 }
 
+async function assertCurrentLineupEligibility(
+  organizationId: string,
+  match: Awaited<ReturnType<typeof scopedMatch>>,
+  teamId?: string,
+) {
+  const lineups = await db.matchLineup.findMany({
+    where: { matchId: match.id, organizationId, ...(teamId ? { teamId } : {}) },
+    include: { players: true },
+  });
+  for (const lineup of lineups) {
+    const team = lineup.teamId === match.homeTeamId ? match.homeTeam : lineup.teamId === match.awayTeamId ? match.awayTeam : null;
+    if (!team) throw new ApiError(422, "Lineup bukan milik tim pertandingan.");
+    const checks = await Promise.all(
+      lineup.players.map(async (player) => ({
+        playerId: player.playerId,
+        check: await eligibilityAt(
+          organizationId,
+          player.playerId,
+          match.seasonId,
+          team.clubId,
+          match.kickoffAt,
+        ),
+      })),
+    );
+    const invalid = checks.filter((item) => item.check.result !== "ELIGIBLE");
+    if (invalid.length)
+      throw new ApiError(422, "Lineup memuat pemain yang tidak eligible pada waktu kickoff.", invalid);
+  }
+}
+
 export async function confirmLineup(
   actor: Actor,
   organizationId: string,
@@ -426,7 +473,8 @@ export async function confirmLineup(
   teamId: string,
 ) {
   await authorizeOrganization(actor, organizationId, "match.lineup.confirm");
-  await scopedMatch(organizationId, matchId);
+  const match = await scopedMatch(organizationId, matchId);
+  await assertCurrentLineupEligibility(organizationId, match, teamId);
   return db.$transaction(async (tx) => {
     const lineup = await tx.matchLineup.findFirst({
       where: { matchId, teamId, organizationId },
@@ -509,6 +557,7 @@ export async function transitionMatch(
     });
     if (confirmed !== 2)
       throw new ApiError(422, "Kedua lineup harus dikonfirmasi.");
+    await assertCurrentLineupEligibility(organizationId, before);
   }
   if (["EXTRA_TIME", "PENALTY_SHOOTOUT"].includes(data.status)) {
     const formatRule = await db.competitionRule.findUnique({
@@ -744,7 +793,7 @@ export async function correctEvent(
         "Koreksi hasil resmi harus disetujui terlebih dahulu.",
       );
   }
-  return db.$transaction(
+  const corrected = await db.$transaction(
     async (tx) => {
       const before = await tx.matchEvent.findFirst({
         where: { id: eventId, matchId, organizationId },
@@ -813,6 +862,14 @@ export async function correctEvent(
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
   );
+  if (match.status === "OFFICIAL")
+    await reconcileDiscipline(
+      actor,
+      organizationId,
+      match.competitionId,
+      match.seasonId,
+    );
+  return corrected;
 }
 
 async function progressBracket(
@@ -1062,6 +1119,8 @@ export async function reviewMatch(
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
   );
   if (data.action === "approve" && "result" in reviewed && reviewed.result) {
+    let statisticsRecomputeFailed = false;
+    let disciplineReconcileFailed = false;
     try {
       await recomputeStatisticsFromOfficialResult(actor, {
         organizationId,
@@ -1073,8 +1132,25 @@ export async function reviewMatch(
       });
     } catch (error) {
       console.error("official-result-statistics-recompute-failed", error);
-      return { ...reviewed, statisticsRecomputeFailed: true };
+      statisticsRecomputeFailed = true;
     }
+    try {
+      await reconcileDiscipline(
+        actor,
+        organizationId,
+        match.competitionId,
+        match.seasonId,
+      );
+      await serveSuspensionsForOfficialMatch(organizationId, matchId);
+    } catch (error) {
+      console.error("official-result-discipline-reconcile-failed", error);
+      disciplineReconcileFailed = true;
+    }
+    return {
+      ...reviewed,
+      ...(statisticsRecomputeFailed ? { statisticsRecomputeFailed: true } : {}),
+      ...(disciplineReconcileFailed ? { disciplineReconcileFailed: true } : {}),
+    };
   }
   return reviewed;
 }

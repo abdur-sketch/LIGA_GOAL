@@ -44,7 +44,7 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ resourc
 export async function POST(request: NextRequest, ctx: { params: Promise<{ resource: string; segments?: string[] }> }) {
   try {
     const [{ resource }, actor] = await Promise.all([context(ctx), getApiActor()]);
-    enforceMutationRateLimit(`${actor.id}:${resource}:create`);
+    await enforceMutationRateLimit(`${actor.id}:${resource}:create`);
     const input = await request.json();
     const organizationId = request.nextUrl.searchParams.get("organizationId");
     const data = resource === "organizations" ? await createOrganization(actor, input) : organizationId ? await createResource(resource, actor, organizationId, input) : (() => { throw new ApiError(400, "organizationId wajib diisi."); })();
@@ -56,7 +56,7 @@ export async function PUT(request: NextRequest, ctx: { params: Promise<{ resourc
   try {
     const [{ resource, id }, actor] = await Promise.all([context(ctx), getApiActor()]);
     if (!id) throw new ApiError(400, "ID wajib diisi.");
-    enforceMutationRateLimit(`${actor.id}:${resource}:update`);
+    await enforceMutationRateLimit(`${actor.id}:${resource}:update`);
     const organizationId = resource === "organizations" ? id : request.nextUrl.searchParams.get("organizationId");
     if (!organizationId) throw new ApiError(400, "organizationId wajib diisi.");
     return NextResponse.json({ data: await updateResource(resource, id, actor, organizationId, await request.json()) });
@@ -67,7 +67,7 @@ export async function DELETE(request: NextRequest, ctx: { params: Promise<{ reso
   try {
     const [{ resource, id }, actor] = await Promise.all([context(ctx), getApiActor()]);
     if (!id) throw new ApiError(400, "ID wajib diisi.");
-    enforceMutationRateLimit(`${actor.id}:${resource}:delete`, 10);
+    await enforceMutationRateLimit(`${actor.id}:${resource}:delete`, 10);
     const organizationId = resource === "organizations" ? id : request.nextUrl.searchParams.get("organizationId");
     if (!organizationId) throw new ApiError(400, "organizationId wajib diisi.");
     return NextResponse.json({ data: await archiveResource(resource, id, actor, organizationId) });

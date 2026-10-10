@@ -1,16 +1,18 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { ApiError } from "@/lib/auth/api";
+import { enforceMutationRateLimit, rateLimitKey, trustedClientAddress } from "@/lib/security/rate-limit";
 import {
   publicMatchSnapshot,
   realtimeMessages,
 } from "@/modules/phase4/service";
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await context.params;
+    await enforceMutationRateLimit(rateLimitKey(["match-poll", trustedClientAddress(request), id]), 120);
     const url = new URL(request.url);
     if (url.searchParams.has("realtime")) {
       const after = url.searchParams.get("after");

@@ -41,7 +41,7 @@ export async function GET(request: NextRequest, context: Context) {
 
 export async function POST(request: NextRequest, context: Context) {
   try {
-    const [{ resource, segments = [] }, actor] = await Promise.all([context.params, getApiActor()]); const options = query(request); enforceMutationRateLimit(`${actor.id}:phase2:${resource}`, 20); const id = segments[0]; const action = segments[1];
+    const [{ resource, segments = [] }, actor] = await Promise.all([context.params, getApiActor()]); const options = query(request); await enforceMutationRateLimit(`${actor.id}:phase2:${resource}`, 20); const id = segments[0]; const action = segments[1];
     if (resource === "documents" && !id) {
       await authorizeOrganization(actor, options.organizationId, "player_document.upload"); const form = await request.formData(); const file = form.get("file"); if (!(file instanceof File)) throw new ApiError(422, "File dokumen wajib disertakan.");
       const input = documentMetaSchema.parse({ playerId: form.get("playerId"), registrationId: form.get("registrationId") || null, type: form.get("type"), label: form.get("label") || null, replacedDocumentId: form.get("replacedDocumentId") || null });
@@ -58,9 +58,9 @@ export async function POST(request: NextRequest, context: Context) {
 }
 
 export async function PUT(request: NextRequest, context: Context) {
-  try { const [{ resource, segments = [] }, actor] = await Promise.all([context.params, getApiActor()]); const options = query(request); if (!segments[0]) throw new ApiError(404, "Endpoint tidak ditemukan."); enforceMutationRateLimit(`${actor.id}:phase2:${resource}:update`, 20); if (resource === "players") return NextResponse.json({ data: await updatePlayer(actor, options.organizationId, segments[0], await request.json()) }); if (resource === "rules") return NextResponse.json({ data: await saveEligibilityRules(actor, options.organizationId, segments[0], await request.json()) }); throw new ApiError(404, "Endpoint tidak ditemukan."); } catch (error) { return errorResponse(error); }
+  try { const [{ resource, segments = [] }, actor] = await Promise.all([context.params, getApiActor()]); const options = query(request); if (!segments[0]) throw new ApiError(404, "Endpoint tidak ditemukan."); await enforceMutationRateLimit(`${actor.id}:phase2:${resource}:update`, 20); if (resource === "players") return NextResponse.json({ data: await updatePlayer(actor, options.organizationId, segments[0], await request.json()) }); if (resource === "rules") return NextResponse.json({ data: await saveEligibilityRules(actor, options.organizationId, segments[0], await request.json()) }); throw new ApiError(404, "Endpoint tidak ditemukan."); } catch (error) { return errorResponse(error); }
 }
 
 export async function DELETE(request: NextRequest, context: Context) {
-  try { const [{ resource, segments = [] }, actor] = await Promise.all([context.params, getApiActor()]); const options = query(request); if (!segments[0]) throw new ApiError(400, "ID wajib diisi."); enforceMutationRateLimit(`${actor.id}:phase2:${resource}:delete`, 10); if (resource === "players") return NextResponse.json({ data: await archivePlayer(actor, options.organizationId, segments[0]) }); if (resource === "squads") return NextResponse.json({ data: await releaseRosterEntry(actor, options.organizationId, segments[0]) }); throw new ApiError(404, "Endpoint tidak ditemukan."); } catch (error) { return errorResponse(error); }
+  try { const [{ resource, segments = [] }, actor] = await Promise.all([context.params, getApiActor()]); const options = query(request); if (!segments[0]) throw new ApiError(400, "ID wajib diisi."); await enforceMutationRateLimit(`${actor.id}:phase2:${resource}:delete`, 10); if (resource === "players") return NextResponse.json({ data: await archivePlayer(actor, options.organizationId, segments[0]) }); if (resource === "squads") return NextResponse.json({ data: await releaseRosterEntry(actor, options.organizationId, segments[0]) }); throw new ApiError(404, "Endpoint tidak ditemukan."); } catch (error) { return errorResponse(error); }
 }

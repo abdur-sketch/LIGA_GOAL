@@ -1,0 +1,5 @@
+"use client";
+import { useState } from "react";
+import { Bell, BellRing } from "lucide-react";
+function anonymousKey() { const name = "liga-goal-anonymous-key"; let value = localStorage.getItem(name); if (!value) { value = crypto.randomUUID().replaceAll("-", ""); localStorage.setItem(name, value); } return value; }
+export function FollowButton({ organizationId, type, targetId }: { organizationId: string; type: "COMPETITION" | "CLUB" | "MATCH"; targetId: string }) { const [following, setFollowing] = useState(false); const [busy, setBusy] = useState(false); async function toggle() { setBusy(true); const response = await fetch("/api/public/portal/follows", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ organizationId, anonymousKey: anonymousKey(), type, targetId, follow: !following }) }); if (response.ok) setFollowing(!following); setBusy(false); } return <button className={following ? "btn-primary" : "btn-secondary"} disabled={busy} onClick={toggle}>{following ? <BellRing size={16} /> : <Bell size={16} />}{following ? "Diikuti" : "Ikuti"}</button>; }
