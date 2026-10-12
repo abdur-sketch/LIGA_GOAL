@@ -1,0 +1,9 @@
+import { NextResponse, type NextRequest } from "next/server";
+import { ZodError } from "zod";
+import { ApiError, getApiActor } from "@/lib/auth/api";
+import { enforceMutationRateLimit, rateLimitKey } from "@/lib/security/rate-limit";
+import { discoveryWorkspace, organizerPublicationAction, saveCompetitionPublication, saveOrganizerPublicProfile } from "@/modules/phase16/service";
+
+function failure(error: unknown) { if (error instanceof ApiError) return NextResponse.json({ error: error.message, details: error.details }, { status: error.status }); if (error instanceof ZodError) return NextResponse.json({ error: "Data publikasi tidak valid.", details: error.flatten() }, { status: 422 }); throw error; }
+export async function GET(request: NextRequest) { try { const actor = await getApiActor(); const organizationId = request.nextUrl.searchParams.get("organizationId"); if (!organizationId) throw new ApiError(400, "organizationId wajib diisi."); return NextResponse.json({ data: await discoveryWorkspace(actor, organizationId) }); } catch (error) { return failure(error); } }
+export async function POST(request: NextRequest) { try { const actor = await getApiActor(); const body = await request.json().catch(() => null); await enforceMutationRateLimit(rateLimitKey(["organizer-discovery", actor.id, String(body?.organizationId || "unknown")]), 30, 60 * 60_000); if (body?.operation === "profile") return NextResponse.json({ data: await saveOrganizerPublicProfile(actor, body.data) }); if (body?.operation === "competition") return NextResponse.json({ data: await saveCompetitionPublication(actor, body.data) }); if (body?.operation === "action") return NextResponse.json({ data: await organizerPublicationAction(actor, body.data) }); throw new ApiError(422, "Operasi publikasi tidak valid."); } catch (error) { return failure(error); } }

@@ -5,10 +5,17 @@ const permissions = [
   "organization.view",
   "organization.update",
   "organization.manage_members",
+  "organization.invitation.manage",
+  "organization.billing.view",
+  "organization.plan_usage.view",
+  "organization.billing.manage",
+  "organization.refund.request",
+  "organization.public_profile.manage",
   "competition.view",
   "competition.create",
   "competition.update",
   "competition.delete",
+  "competition.publication.manage",
   "season.view",
   "season.create",
   "season.update",
@@ -116,14 +123,23 @@ export default async function globalSetup() {
         passwordHash: await hash("E2E-password-123!", 10),
         isActive: true,
         isPlatformAdmin: true,
+        emailVerifiedAt: new Date(),
       },
       create: {
         name: "E2E Admin",
         email: "e2e-admin@ligagoal.test",
         passwordHash: await hash("E2E-password-123!", 10),
         isPlatformAdmin: true,
+        emailVerifiedAt: new Date(),
       },
     });
+    for (const permission of ["finance.billing.view", "finance.billing.manage", "discovery.moderate.view", "discovery.moderate.manage"]) {
+      await db.platformPermissionGrant.upsert({
+        where: { userId_permission: { userId: user.id, permission } },
+        update: {},
+        create: { userId: user.id, permission, grantedById: user.id, reason: "E2E_FINANCE_SANDBOX" },
+      });
+    }
     const organization = await db.organization.upsert({
       where: { slug: "e2e-liga-goal" },
       update: { status: "ACTIVE", deletedAt: null, ownerId: user.id },
@@ -133,6 +149,12 @@ export default async function globalSetup() {
         status: "ACTIVE",
         ownerId: user.id,
       },
+    });
+    const enterprisePlan = await db.planVersion.findUniqueOrThrow({ where: { id: "pv_enterprise_v1" } });
+    await db.organizationSubscription.upsert({
+      where: { organizationId: organization.id },
+      update: { planVersionId: enterprisePlan.id, status: "ACTIVE", reason: "E2E_UNLIMITED_REGRESSION" },
+      create: { organizationId: organization.id, planVersionId: enterprisePlan.id, status: "ACTIVE", assignedById: user.id, reason: "E2E_UNLIMITED_REGRESSION" },
     });
     const role = await db.role.upsert({
       where: {
@@ -192,6 +214,18 @@ export default async function globalSetup() {
         status: "REGISTRATION",
         format: "SINGLE_ROUND_ROBIN",
       },
+    });
+    const province = await db.administrativeArea.findFirstOrThrow({ where: { code: "31", type: "PROVINCE", isActive: true } });
+    const city = await db.administrativeArea.findFirstOrThrow({ where: { code: "31.71", isActive: true } });
+    await db.publicOrganizerProfile.upsert({
+      where: { organizationId: organization.id },
+      update: { status: "PUBLISHED", displayName: organization.name, provinceId: province.id, cityId: city.id, publishedAt: new Date(), reviewedById: user.id },
+      create: { organizationId: organization.id, publicSlug: organization.slug, displayName: organization.name, description: "Penyelenggara fixture E2E nasional.", status: "PUBLISHED", provinceId: province.id, cityId: city.id, publishedAt: new Date(), reviewedById: user.id },
+    });
+    await db.competitionPublication.upsert({
+      where: { competitionId: competition.id },
+      update: { status: "PUBLISHED", provinceId: province.id, cityId: city.id, searchText: "e2e phase 3 liga goal jakarta", publishedAt: new Date(), reviewedById: user.id },
+      create: { organizationId: organization.id, competitionId: competition.id, publicSlug: competition.slug, status: "PUBLISHED", provinceId: province.id, cityId: city.id, searchText: "e2e phase 3 liga goal jakarta", publishedAt: new Date(), reviewedById: user.id },
     });
     const season = await db.season.upsert({
       where: {

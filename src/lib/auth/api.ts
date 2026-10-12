@@ -8,12 +8,14 @@ export class ApiError extends Error {
   constructor(public status: number, message: string, public details?: unknown) { super(message); }
 }
 
-export async function getApiActor() {
+export type ApiActor = { id: string; isActive: boolean; isPlatformAdmin: boolean; deletedAt: Date | null };
+
+export async function getApiActor(): Promise<ApiActor> {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) throw new ApiError(401, "Sesi autentikasi diperlukan.");
-  const user = await withIdentityDatabase(() => db.user.findUnique({ where: { id: session.user.id }, select: { id: true, isActive: true, isPlatformAdmin: true, deletedAt: true } }));
-  if (!user?.isActive || user.deletedAt) throw new ApiError(401, "Akun tidak aktif.");
-  return user;
+  const user = await withIdentityDatabase(() => db.user.findUnique({ where: { id: session.user.id }, select: { id: true, isActive: true, emailVerifiedAt: true, isPlatformAdmin: true, deletedAt: true } }));
+  if (!user?.isActive || !user.emailVerifiedAt || user.deletedAt) throw new ApiError(401, "Akun tidak aktif atau belum diverifikasi.");
+  return { id: user.id, isActive: user.isActive, isPlatformAdmin: user.isPlatformAdmin, deletedAt: user.deletedAt };
 }
 
 export async function authorizeOrganization(user: Awaited<ReturnType<typeof getApiActor>>, organizationId: string, permission: PermissionKey) {

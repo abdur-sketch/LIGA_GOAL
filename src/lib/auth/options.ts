@@ -12,7 +12,7 @@ import { withIdentityDatabase } from "@/lib/tenant-db";
 
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt", maxAge: 60 * 60 * 8 },
-  pages: { signIn: "/login", error: "/login" },
+  pages: { signIn: "/masuk", error: "/masuk" },
   cookies: {
     sessionToken: {
       name: `${process.env.NODE_ENV === "production" ? "__Secure-" : ""}liga-goal.session-token`,
@@ -41,6 +41,7 @@ export const authOptions: NextAuthOptions = {
         );
         if (
           !user?.isActive ||
+          !user.emailVerifiedAt ||
           user.deletedAt ||
           !(await compare(parsed.data.password, user.passwordHash))
         )
@@ -86,11 +87,12 @@ export const authOptions: NextAuthOptions = {
       const current = await withIdentityDatabase(() =>
         db.user.findUnique({
           where: { id: token.userId },
-          select: { isActive: true, deletedAt: true, sessionVersion: true },
+          select: { isActive: true, emailVerifiedAt: true, deletedAt: true, sessionVersion: true },
         }),
       );
       token.revoked =
         !current?.isActive ||
+        !current.emailVerifiedAt ||
         Boolean(current.deletedAt) ||
         current.sessionVersion !== token.sessionVersion;
       return token;

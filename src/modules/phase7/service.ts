@@ -13,11 +13,12 @@ const liveStatuses: MatchStatus[] = ["LIVE_FIRST_HALF", "HALF_TIME", "LIVE_SECON
 export const publicCompetitionWhere = {
   deletedAt: null,
   status: { in: [...publicCompetitionStatuses] },
-  organization: { status: "ACTIVE" as const, deletedAt: null },
+  publication: { is: { status: "PUBLISHED" as const } },
+  organization: { status: "ACTIVE" as const, deletedAt: null, publicProfile: { is: { status: "PUBLISHED" as const } } },
 };
 
 const matchInclude = Prisma.validator<Prisma.MatchInclude>()({
-  competition: { select: { name: true, slug: true, logoUrl: true } },
+  competition: { select: { name: true, slug: true, logoUrl: true, publication: { select: { publicSlug: true } } } },
   season: { select: { id: true, name: true } },
   stage: { select: { id: true, name: true } },
   venue: { select: { name: true, city: true } },
@@ -38,9 +39,9 @@ async function getPublicHomeUnsafe() {
     db.match.findMany({ where: { kickoffAt: { gte: start, lt: end }, status: { in: publicMatchStatuses }, publishedAt: { not: null }, competition: publicCompetitionWhere }, include: matchInclude, orderBy: { kickoffAt: "asc" }, take: 8 }),
     db.match.findMany({ where: { kickoffAt: { gte: end }, status: { in: publicMatchStatuses }, publishedAt: { not: null }, competition: publicCompetitionWhere }, include: matchInclude, orderBy: { kickoffAt: "asc" }, take: 6 }),
     db.match.findMany({ where: { status: "OFFICIAL", publishedAt: { not: null }, competition: publicCompetitionWhere }, include: matchInclude, orderBy: { kickoffAt: "desc" }, take: 6 }),
-    db.competition.findMany({ where: publicCompetitionWhere, include: { organization: { select: { name: true } }, seasons: { where: { status: { in: ["ACTIVE", "COMPLETED"] } }, orderBy: { startsAt: "desc" }, take: 1 }, _count: { select: { clubEntries: { where: { status: "APPROVED" } } } } }, orderBy: { updatedAt: "desc" }, take: 6 }),
-    db.article.findMany({ where: publishedArticleWhere(), include: { competition: { select: { name: true, slug: true } } }, orderBy: { publishedAt: "desc" }, take: 4 }),
-    db.statisticsSnapshot.findFirst({ where: { status: "PUBLISHED", publishedAt: { not: null }, competition: publicCompetitionWhere }, orderBy: { publishedAt: "desc" }, include: { standings: { orderBy: { position: "asc" }, take: 5, include: { club: { select: { name: true, slug: true, logoUrl: true } } } }, playerStatistics: { where: { player: adultOrConsentedPlayerWhere() }, orderBy: [{ goals: "desc" }, { assists: "desc" }], take: 5, include: { player: { select: { id: true, fullName: true, displayName: true, photoUrl: true } }, club: { select: { name: true, slug: true } } } }, competition: { select: { name: true, slug: true } }, season: { select: { name: true } } } }),
+    db.competition.findMany({ where: publicCompetitionWhere, include: { organization: { select: { name: true } }, publication: { select: { publicSlug: true } }, seasons: { where: { status: { in: ["ACTIVE", "COMPLETED"] } }, orderBy: { startsAt: "desc" }, take: 1 }, _count: { select: { clubEntries: { where: { status: "APPROVED" } } } } }, orderBy: { updatedAt: "desc" }, take: 6 }),
+    db.article.findMany({ where: publishedArticleWhere(), include: { competition: { select: { name: true, slug: true, publication: { select: { publicSlug: true } } } } }, orderBy: { publishedAt: "desc" }, take: 4 }),
+    db.statisticsSnapshot.findFirst({ where: { status: "PUBLISHED", publishedAt: { not: null }, competition: publicCompetitionWhere }, orderBy: { publishedAt: "desc" }, include: { standings: { orderBy: { position: "asc" }, take: 5, include: { club: { select: { name: true, slug: true, logoUrl: true } } } }, playerStatistics: { where: { player: adultOrConsentedPlayerWhere() }, orderBy: [{ goals: "desc" }, { assists: "desc" }], take: 5, include: { player: { select: { id: true, fullName: true, displayName: true, photoUrl: true } }, club: { select: { name: true, slug: true } } } }, competition: { select: { name: true, slug: true, publication: { select: { publicSlug: true } } } }, season: { select: { name: true } } } }),
   ]);
   return { live, today, upcoming, results, competitions, articles, snapshot, generatedAt: now };
 }
@@ -72,6 +73,7 @@ async function listPublicCompetitionsUnsafe() {
     where: publicCompetitionWhere,
     include: {
       organization: { select: { name: true, slug: true } },
+      publication: { include: { province: { select: { name: true, slug: true } }, city: { select: { name: true, slug: true } } } },
       seasons: { orderBy: { startsAt: "desc" }, take: 2 },
       _count: { select: { clubEntries: { where: { status: "APPROVED" } }, matches: { where: { publishedAt: { not: null } } } } },
     },
@@ -80,14 +82,40 @@ async function listPublicCompetitionsUnsafe() {
 }
 
 async function getPublicCompetitionUnsafe(slug: string) {
-  const competition = await db.competition.findFirst({ where: { slug, ...publicCompetitionWhere }, include: { organization: { select: { name: true, slug: true } }, seasons: { orderBy: { startsAt: "desc" } }, clubEntries: { where: { status: "APPROVED" }, distinct: ["clubId"], include: { club: { select: { id: true, name: true, shortName: true, slug: true, logoUrl: true, city: true } } } }, matches: { where: { publishedAt: { not: null }, status: { in: publicMatchStatuses } }, include: matchInclude, orderBy: { kickoffAt: "desc" }, take: 30 }, bracketTies: { include: { slots: { include: { club: { select: { name: true, slug: true, logoUrl: true } } } }, winnerTeam: { include: { club: { select: { name: true, slug: true } } } } }, orderBy: [{ round: "asc" }, { position: "asc" }] }, articles: { where: publishedArticleWhere(), orderBy: { publishedAt: "desc" }, take: 6 } } });
+  const competition = await db.competition.findFirst({
+    where: { ...publicCompetitionWhere, publication: { is: { status: "PUBLISHED", publicSlug: slug } } },
+    include: {
+      organization: { select: { name: true, slug: true, publicProfile: { select: { publicSlug: true } } } },
+      publication: { include: { province: { select: { name: true, slug: true } }, city: { select: { name: true, slug: true } } } },
+      seasons: { orderBy: { startsAt: "desc" } },
+      clubEntries: {
+        where: { status: "APPROVED" },
+        distinct: ["clubId"],
+        include: { club: { select: { id: true, name: true, shortName: true, slug: true, logoUrl: true, city: true } } },
+      },
+      matches: {
+        where: { publishedAt: { not: null }, status: { in: publicMatchStatuses } },
+        include: matchInclude,
+        orderBy: { kickoffAt: "desc" },
+        take: 30,
+      },
+      bracketTies: {
+        include: {
+          slots: { include: { club: { select: { name: true, slug: true, logoUrl: true } } } },
+          winnerTeam: { include: { club: { select: { name: true, slug: true } } } },
+        },
+        orderBy: [{ round: "asc" }, { position: "asc" }],
+      },
+      articles: { where: publishedArticleWhere(), orderBy: { publishedAt: "desc" }, take: 6 },
+    },
+  });
   if (!competition) throw new ApiError(404, "Kompetisi tidak ditemukan.");
   const snapshot = await db.statisticsSnapshot.findFirst({ where: { competitionId: competition.id, status: "PUBLISHED", publishedAt: { not: null } }, orderBy: { publishedAt: "desc" }, include: { standings: { orderBy: { position: "asc" }, include: { club: { select: { name: true, slug: true, logoUrl: true } } } }, playerStatistics: { where: { player: adultOrConsentedPlayerWhere() }, orderBy: [{ goals: "desc" }, { assists: "desc" }], take: 10, include: { player: { select: { id: true, displayName: true, fullName: true, photoUrl: true } }, club: { select: { name: true, slug: true } } } } } });
   return { competition, snapshot };
 }
 
 async function getLatestStandingsUnsafe(competitionId?: string) {
-  return db.statisticsSnapshot.findFirst({ where: { ...(competitionId ? { competitionId } : {}), status: "PUBLISHED", publishedAt: { not: null }, competition: publicCompetitionWhere }, orderBy: { publishedAt: "desc" }, include: { competition: { select: { id: true, name: true, slug: true } }, season: { select: { id: true, name: true, tieBreakers: true } }, stage: { select: { id: true, name: true } }, group: { select: { id: true, name: true } }, standings: { orderBy: { position: "asc" }, include: { club: { select: { name: true, shortName: true, slug: true, logoUrl: true } } } } } });
+  return db.statisticsSnapshot.findFirst({ where: { ...(competitionId ? { competitionId } : {}), status: "PUBLISHED", publishedAt: { not: null }, competition: publicCompetitionWhere }, orderBy: { publishedAt: "desc" }, include: { competition: { select: { id: true, name: true, slug: true, publication: { select: { publicSlug: true } } } }, season: { select: { id: true, name: true, tieBreakers: true } }, stage: { select: { id: true, name: true } }, group: { select: { id: true, name: true } }, standings: { orderBy: { position: "asc" }, include: { club: { select: { name: true, shortName: true, slug: true, logoUrl: true } } } } } });
 }
 
 function adultOrConsentedPlayerWhere(): Prisma.PlayerWhereInput {
@@ -97,17 +125,58 @@ function adultOrConsentedPlayerWhere(): Prisma.PlayerWhereInput {
 
 async function listPublicPlayersUnsafe(search = "") {
   const privacy = adultOrConsentedPlayerWhere();
-  return db.player.findMany({ where: { deletedAt: null, status: "ACTIVE", organization: { status: "ACTIVE", deletedAt: null }, AND: [privacy, ...(search ? [{ OR: [{ displayName: { contains: search, mode: "insensitive" as const } }, { fullName: { contains: search, mode: "insensitive" as const } }] }] : [])] }, select: { id: true, displayName: true, fullName: true, photoUrl: true, primaryPosition: true, activeClub: { select: { name: true, slug: true, logoUrl: true } }, registrations: { where: { status: "APPROVED", competition: publicCompetitionWhere }, orderBy: { registrationDate: "desc" }, take: 1, select: { jerseyNumber: true, competition: { select: { name: true, slug: true } } } }, statisticsRows: { where: { snapshot: { status: "PUBLISHED" } }, orderBy: { snapshot: { publishedAt: "desc" } }, take: 1, select: { appearances: true, goals: true, assists: true, yellowCards: true, redCards: true } } }, orderBy: { displayName: "asc" }, take: 60 });
+  return db.player.findMany({
+    where: {
+      deletedAt: null,
+      status: "ACTIVE",
+      organization: { status: "ACTIVE", deletedAt: null },
+      AND: [privacy, ...(search ? [{ OR: [{ displayName: { contains: search, mode: "insensitive" as const } }, { fullName: { contains: search, mode: "insensitive" as const } }] }] : [])],
+    },
+    select: {
+      id: true, displayName: true, fullName: true, photoUrl: true, primaryPosition: true,
+      activeClub: { select: { name: true, slug: true, logoUrl: true } },
+      registrations: {
+        where: { status: "APPROVED", competition: publicCompetitionWhere },
+        orderBy: { registrationDate: "desc" },
+        take: 1,
+        select: { jerseyNumber: true, competition: { select: { name: true, slug: true, publication: { select: { publicSlug: true } } } } },
+      },
+      statisticsRows: {
+        where: { snapshot: { status: "PUBLISHED" } },
+        orderBy: { snapshot: { publishedAt: "desc" } },
+        take: 1,
+        select: { appearances: true, goals: true, assists: true, yellowCards: true, redCards: true },
+      },
+    },
+    orderBy: { displayName: "asc" },
+    take: 60,
+  });
 }
 
 async function getPublicPlayerUnsafe(id: string) {
-  const player = await db.player.findFirst({ where: { id, deletedAt: null, status: "ACTIVE", organization: { status: "ACTIVE", deletedAt: null }, ...adultOrConsentedPlayerWhere() }, select: { id: true, displayName: true, fullName: true, photoUrl: true, primaryPosition: true, activeClub: { select: { name: true, slug: true, logoUrl: true, city: true } }, registrations: { where: { status: "APPROVED", competition: publicCompetitionWhere }, orderBy: { registrationDate: "desc" }, select: { jerseyNumber: true, competition: { select: { name: true, slug: true } }, season: { select: { name: true } }, club: { select: { name: true, slug: true } } } }, statisticsRows: { where: { snapshot: { status: "PUBLISHED" } }, orderBy: { snapshot: { publishedAt: "desc" } }, select: { appearances: true, starts: true, goals: true, assists: true, yellowCards: true, redCards: true, cleanSheets: true, snapshot: { select: { publishedAt: true, competition: { select: { name: true, slug: true } }, season: { select: { name: true } } } } } } } });
+  const player = await db.player.findFirst({ where: { id, deletedAt: null, status: "ACTIVE", organization: { status: "ACTIVE", deletedAt: null }, ...adultOrConsentedPlayerWhere() }, select: { id: true, displayName: true, fullName: true, photoUrl: true, primaryPosition: true, activeClub: { select: { name: true, slug: true, logoUrl: true, city: true } }, registrations: { where: { status: "APPROVED", competition: publicCompetitionWhere }, orderBy: { registrationDate: "desc" }, select: { jerseyNumber: true, competition: { select: { name: true, slug: true, publication: { select: { publicSlug: true } } } }, season: { select: { name: true } }, club: { select: { name: true, slug: true } } } }, statisticsRows: { where: { snapshot: { status: "PUBLISHED" } }, orderBy: { snapshot: { publishedAt: "desc" } }, select: { appearances: true, starts: true, goals: true, assists: true, yellowCards: true, redCards: true, cleanSheets: true, snapshot: { select: { publishedAt: true, competition: { select: { name: true, slug: true, publication: { select: { publicSlug: true } } } }, season: { select: { name: true } } } } } } } });
   if (!player) throw new ApiError(404, "Pemain tidak ditemukan atau profilnya tidak tersedia untuk publik.");
   return player;
 }
 
 async function listPublicClubsUnsafe() {
-  return db.club.findMany({ where: { deletedAt: null, isActive: true, organization: { status: "ACTIVE", deletedAt: null }, competitionEntries: { some: { status: "APPROVED", competition: publicCompetitionWhere } } }, select: { id: true, organizationId: true, name: true, shortName: true, slug: true, logoUrl: true, city: true, description: true, competitionEntries: { where: { status: "APPROVED", competition: publicCompetitionWhere }, distinct: ["competitionId"], select: { competition: { select: { name: true, slug: true } } } } }, orderBy: { name: "asc" } });
+  return db.club.findMany({
+    where: {
+      deletedAt: null,
+      isActive: true,
+      organization: { status: "ACTIVE", deletedAt: null },
+      competitionEntries: { some: { status: "APPROVED", competition: publicCompetitionWhere } },
+    },
+    select: {
+      id: true, organizationId: true, name: true, shortName: true, slug: true, logoUrl: true, city: true, description: true,
+      competitionEntries: {
+        where: { status: "APPROVED", competition: publicCompetitionWhere },
+        distinct: ["competitionId"],
+        select: { competition: { select: { name: true, slug: true, publication: { select: { publicSlug: true } } } } },
+      },
+    },
+    orderBy: { name: "asc" },
+  });
 }
 
 async function getPublicClubUnsafe(slug: string) {
@@ -116,7 +185,7 @@ async function getPublicClubUnsafe(slug: string) {
     select: {
       id: true, organizationId: true, name: true, shortName: true, slug: true, logoUrl: true, city: true, description: true, foundedYear: true,
       homeVenue: { select: { name: true, city: true } },
-      competitionEntries: { where: { status: "APPROVED", competition: publicCompetitionWhere }, distinct: ["competitionId"], select: { competition: { select: { name: true, slug: true } }, season: { select: { name: true } } } },
+      competitionEntries: { where: { status: "APPROVED", competition: publicCompetitionWhere }, distinct: ["competitionId"], select: { competition: { select: { name: true, slug: true, publication: { select: { publicSlug: true } } } }, season: { select: { name: true } } } },
       playerStatisticsRows: { where: { snapshot: { status: "PUBLISHED" }, player: adultOrConsentedPlayerWhere() }, orderBy: [{ goals: "desc" }, { assists: "desc" }], take: 8, select: { appearances: true, goals: true, assists: true, player: { select: { id: true, displayName: true, fullName: true, photoUrl: true } } } },
     },
   });
@@ -125,7 +194,7 @@ async function getPublicClubUnsafe(slug: string) {
 }
 
 async function getPublicStatisticsUnsafe(competitionId?: string) {
-  return db.statisticsSnapshot.findFirst({ where: { ...(competitionId ? { competitionId } : {}), status: "PUBLISHED", publishedAt: { not: null }, competition: publicCompetitionWhere }, orderBy: { publishedAt: "desc" }, include: { competition: { select: { id: true, name: true, slug: true } }, season: { select: { id: true, name: true } }, playerStatistics: { where: { player: adultOrConsentedPlayerWhere() }, orderBy: [{ goals: "desc" }, { assists: "desc" }, { appearances: "desc" }], take: 50, include: { player: { select: { id: true, displayName: true, fullName: true, photoUrl: true } }, club: { select: { name: true, slug: true, logoUrl: true } } } }, teamStatistics: { orderBy: { goalsFor: "desc" }, include: { club: { select: { name: true, slug: true, logoUrl: true } } } } } });
+  return db.statisticsSnapshot.findFirst({ where: { ...(competitionId ? { competitionId } : {}), status: "PUBLISHED", publishedAt: { not: null }, competition: publicCompetitionWhere }, orderBy: { publishedAt: "desc" }, include: { competition: { select: { id: true, name: true, slug: true, publication: { select: { publicSlug: true } } } }, season: { select: { id: true, name: true } }, playerStatistics: { where: { player: adultOrConsentedPlayerWhere() }, orderBy: [{ goals: "desc" }, { assists: "desc" }, { appearances: "desc" }], take: 50, include: { player: { select: { id: true, displayName: true, fullName: true, photoUrl: true } }, club: { select: { name: true, slug: true, logoUrl: true } } } }, teamStatistics: { orderBy: { goalsFor: "desc" }, include: { club: { select: { name: true, slug: true, logoUrl: true } } } } } });
 }
 
 function publishedArticleWhere(): Prisma.ArticleWhereInput { const now = new Date(); return { organizationId: { not: null }, organization: { status: "ACTIVE", deletedAt: null }, AND: [{ OR: [{ status: "PUBLISHED", publishedAt: { lte: now } }, { status: "SCHEDULED", scheduledAt: { lte: now } }] }, { OR: [{ competitionId: null }, { competition: publicCompetitionWhere }] }] }; }

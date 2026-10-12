@@ -9,6 +9,12 @@ import {
 import type { PermissionKey } from "@/lib/auth/permissions";
 import { withMembershipDatabase, withTenantDatabase } from "@/lib/tenant-db";
 import { schemas, type ResourceName } from "./validation";
+import {
+  commitQuotaInCurrentTransaction,
+  evaluateEntitlement,
+  reserveQuotaInCurrentTransaction,
+  type MetricKey,
+} from "@/modules/phase14/service";
 
 type Actor = Awaited<ReturnType<typeof getApiActor>>;
 type Query = {
@@ -63,14 +69,21 @@ const permissionMap: Record<
   },
 };
 
-const ownerPermissionKeys: PermissionKey[] = [
+export const ownerPermissionKeys: PermissionKey[] = [
   "organization.view",
   "organization.update",
   "organization.manage_members",
+  "organization.invitation.manage",
+  "organization.billing.view",
+  "organization.plan_usage.view",
+  "organization.billing.manage",
+  "organization.refund.request",
+  "organization.public_profile.manage",
   "competition.view",
   "competition.create",
   "competition.update",
   "competition.delete",
+  "competition.publication.manage",
   "season.view",
   "season.create",
   "season.update",
@@ -367,6 +380,19 @@ export async function createOrganization(actor: Actor, input: unknown) {
   return db.$transaction(async (tx) => {
     const organization = await tx.organization.create({
       data: { ...data, ownerId },
+    });
+    const freePlan = await tx.planVersion.findFirstOrThrow({
+      where: { plan: { code: "ENTERPRISE" }, version: 1, isActive: true },
+      select: { id: true },
+    });
+    await tx.organizationSubscription.create({
+      data: {
+        organizationId: organization.id,
+        planVersionId: freePlan.id,
+        status: "ACTIVE",
+        assignedById: actor.id,
+        reason: "PLATFORM_LEGACY_COMPATIBILITY_DEFAULT",
+      },
     });
     const permissions = await Promise.all(
       ownerPermissionKeys.map((key) =>
@@ -682,6 +708,7 @@ export async function createResource(
   actor: Actor,
   organizationId: string,
   input: unknown,
+  idempotencyKey = `phase1:${crypto.randomUUID()}`,
 ) {
   const permissions =
     resource === "memberships"
@@ -710,6 +737,32 @@ export async function createResource(
   const data = schemas[resource].parse(input) as Record<string, unknown>;
   await assertTenantRelations(resource, organizationId, data);
   return db.$transaction(async (tx) => {
+    let quota: { counterId: string; metricKey: MetricKey; scopeKey: string } | null = null;
+    if (resource === "competitions") {
+      const capability = await evaluateEntitlement(organizationId, "competition.create");
+      if (!capability.allowed) throw new ApiError(402, "Paket saat ini tidak mengizinkan pembuatan kompetisi.", capability);
+      const reservation = await reserveQuotaInCurrentTransaction({ organizationId, metricKey: "competition.active", featureKey: "competition.max_active", eventKey: idempotencyKey, currentUsage: () => tx.competition.count({ where: { organizationId, deletedAt: null, status: { not: "ARCHIVED" } } }) });
+      if (reservation.duplicate) throw new ApiError(409, "Permintaan ini sudah diproses.");
+      quota = { counterId: reservation.counterId, metricKey: "competition.active", scopeKey: "organization" };
+    }
+    if (resource === "memberships") {
+      const reservation = await reserveQuotaInCurrentTransaction({ organizationId, metricKey: "member.active", featureKey: "member.max_active", eventKey: idempotencyKey, currentUsage: () => tx.organizationMember.count({ where: { organizationId, isActive: true } }) });
+      if (reservation.duplicate) throw new ApiError(409, "Permintaan ini sudah diproses.");
+      quota = { counterId: reservation.counterId, metricKey: "member.active", scopeKey: "organization" };
+    }
+    if (resource === "participations") {
+      const competitionId = String(data.competitionId);
+      const reservation = await reserveQuotaInCurrentTransaction({ organizationId, metricKey: "club.per_competition", featureKey: "club.max_per_competition", eventKey: idempotencyKey, scopeKey: competitionId, competitionId, currentUsage: () => tx.competitionClub.count({ where: { organizationId, competitionId } }) });
+      if (reservation.duplicate) throw new ApiError(409, "Permintaan ini sudah diproses.");
+      quota = { counterId: reservation.counterId, metricKey: "club.per_competition", scopeKey: competitionId };
+    }
+    if (resource === "seasons") {
+      const seasonCount = await tx.season.count({ where: { competitionId: String(data.competitionId) } });
+      if (seasonCount > 0) {
+        const decision = await evaluateEntitlement(organizationId, "season.multiple", { competitionId: String(data.competitionId) });
+        if (!decision.allowed) throw new ApiError(402, "Paket saat ini tidak mengizinkan lebih dari satu musim.", decision);
+      }
+    }
     let created: { id: string };
     if (resource === "memberships") {
       const [user, role] = await Promise.all([
@@ -775,6 +828,7 @@ export async function createResource(
       created = await tx.officialAssignment.create({
         data: data as Prisma.OfficialAssignmentUncheckedCreateInput,
       });
+    if (quota) await commitQuotaInCurrentTransaction({ organizationId, counterId: quota.counterId, metricKey: quota.metricKey, scopeKey: quota.scopeKey, eventKey: idempotencyKey, resourceId: created.id });
     await audit(
       tx,
       actor,

@@ -21,7 +21,9 @@
     "load:test": "node scripts/load-test.mjs",
     "load:realtime": "node scripts/realtime-load-test.mjs",
     "storage:migrate": "tsx scripts/migrate-object-storage.ts",
-    "alerts:check": "tsx scripts/check-operational-alerts.ts"
+    "alerts:check": "tsx scripts/check-operational-alerts.ts",
+    "regions:import": "tsx scripts/import-indonesia-regions.ts",
+    "benchmark:discovery": "tsx scripts/benchmark-discovery.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1149.0",

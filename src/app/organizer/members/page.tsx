@@ -1,0 +1,5 @@
+import { redirect } from "next/navigation";
+import { getApiActor } from "@/lib/auth/api";
+import { organizerOverview } from "@/modules/phase13/service";
+
+export default async function MembersPage() { const actor = await getApiActor(); const data = await organizerOverview(actor); if (!data) redirect("/organizer/onboarding"); return <main className="mx-auto max-w-5xl p-5 py-10"><h1 className="font-display text-3xl font-bold">Anggota organisasi</h1><div className="mt-6 overflow-hidden rounded-2xl border"><table className="w-full text-left text-sm"><thead className="bg-white/5 text-muted"><tr><th className="p-4">Nama</th><th className="p-4">Email</th><th className="p-4">Role</th><th className="p-4">Status</th></tr></thead><tbody>{data.members.map((member) => <tr key={member.id} className="border-t"><td className="p-4">{member.user.name}</td><td className="p-4">{member.user.email}</td><td className="p-4">{member.role.name}</td><td className="p-4">{member.isActive ? "Aktif" : "Nonaktif"}</td></tr>)}</tbody></table></div></main>; }

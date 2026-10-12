@@ -110,6 +110,8 @@ describe
           status: "ONGOING",
         },
       });
+      await db.publicOrganizerProfile.create({ data: { organizationId: organization.id, publicSlug: organization.slug, displayName: organization.name, status: "PUBLISHED", publishedAt: new Date(), reviewedById: operatorUser.id } });
+      await db.competitionPublication.create({ data: { organizationId: organization.id, competitionId: competition.id, publicSlug: competition.slug, status: "PUBLISHED", searchText: competition.name.toLowerCase(), publishedAt: new Date(), reviewedById: operatorUser.id } });
       record(2, "competition created", competition.id);
       await db.competitionRule.createMany({
         data: [

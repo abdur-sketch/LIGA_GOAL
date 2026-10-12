@@ -16,6 +16,8 @@ describe.sequential("Phase 7 portal security and publishing", () => {
     const role = await db.role.create({ data: { organizationId, name: "Publisher", key: `publisher-${suffix}`, permissions: { create: permissions.map((permission) => ({ permissionId: permission.id })) } } });
     const user = await db.user.create({ data: { name: "Publisher", email: `publisher-${suffix}@test.invalid`, passwordHash: "test", memberships: { create: { organizationId, roleId: role.id } } } }); actorId = user.id;
     const competition = await db.competition.create({ data: { organizationId, name: "Public League", slug: `public-league-${suffix}`, format: "SINGLE_ROUND_ROBIN", status: "ONGOING" } }); competitionId = competition.id;
+    await db.publicOrganizerProfile.create({ data: { organizationId, publicSlug: organization.slug, displayName: organization.name, status: "PUBLISHED", publishedAt: new Date() } });
+    await db.competitionPublication.create({ data: { organizationId, competitionId, publicSlug: competition.slug, status: "PUBLISHED", searchText: competition.name.toLowerCase(), publishedAt: new Date() } });
     const minor = await db.player.create({ data: { organizationId, fullName: "Private Minor", dateOfBirth: new Date("2012-01-01"), status: "ACTIVE" } }); minorId = minor.id;
     await db.player.create({ data: { organizationId, fullName: "Public Adult", dateOfBirth: new Date("1990-01-01"), status: "ACTIVE" } });
   });

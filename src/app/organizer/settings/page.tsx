@@ -1,0 +1,5 @@
+import { redirect } from "next/navigation";
+import { getApiActor } from "@/lib/auth/api";
+import { organizerOverview } from "@/modules/phase13/service";
+
+export default async function SettingsPage() { const actor = await getApiActor(); const data = await organizerOverview(actor); if (!data) redirect("/organizer/onboarding"); return <main className="mx-auto max-w-3xl p-5 py-10"><h1 className="font-display text-3xl font-bold">Pengaturan organisasi</h1><section className="mt-6 rounded-2xl border bg-surface/60 p-6"><dl className="grid gap-5 sm:grid-cols-2"><div><dt className="text-xs uppercase text-muted">Nama</dt><dd className="mt-1 font-semibold">{data.organization.name}</dd></div><div><dt className="text-xs uppercase text-muted">Slug</dt><dd className="mt-1 font-semibold">{data.organization.slug}</dd></div><div><dt className="text-xs uppercase text-muted">Status</dt><dd className="mt-1 font-semibold">{data.organization.status}</dd></div></dl><p className="mt-6 text-sm text-muted">Perubahan identitas organisasi tetap melalui modul administrasi existing agar alur persetujuan Phase 0–11 tidak terduplikasi.</p></section></main>; }

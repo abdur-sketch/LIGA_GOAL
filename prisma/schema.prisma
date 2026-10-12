@@ -14,6 +14,156 @@ enum OrganizationStatus {
   ARCHIVED
 }
 
+enum OrganizerType {
+  COMMUNITY
+  CLUB_ASSOCIATION
+  SCHOOL
+  CORPORATE
+  GOVERNMENT
+  FEDERATION
+  OTHER
+}
+
+enum OrganizerOnboardingStatus {
+  DRAFT
+  COMPLETED
+}
+
+enum OrganizationInvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  REVOKED
+}
+
+enum PlanBillingModel {
+  ZERO
+  RECURRING
+  EVENT
+  CONTRACT
+}
+
+enum EntitlementValueType {
+  BOOLEAN
+  INTEGER
+  STRING
+}
+
+enum EntitlementScope {
+  ORGANIZATION
+  COMPETITION
+  SEASON
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  GRACE_PERIOD
+  PAST_DUE
+  SUSPENDED
+  CANCELED
+  EXPIRED
+}
+
+enum UsageEventKind {
+  RESERVE
+  COMMIT
+  RELEASE
+  RECONCILE
+}
+
+enum BillingOrderStatus {
+  CREATED
+  INVOICED
+  PAYMENT_PENDING
+  PAID
+  CANCELED
+  EXPIRED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  VOID
+  UNCOLLECTIBLE
+  PARTIALLY_REFUNDED
+  REFUNDED
+}
+
+enum PaymentAttemptStatus {
+  CREATED
+  PENDING
+  SUCCEEDED
+  FAILED
+  EXPIRED
+  CANCELED
+}
+
+enum PaymentTransactionStatus {
+  CREATED
+  PENDING
+  PAID
+  FAILED
+  EXPIRED
+  CANCELED
+  PARTIALLY_REFUNDED
+  REFUNDED
+}
+
+enum PaymentEventStatus {
+  RECEIVED
+  VERIFIED
+  PROCESSED
+  REJECTED
+  FAILED
+}
+
+enum RefundStatus {
+  REQUESTED
+  APPROVED
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  REJECTED
+  CANCELED
+}
+
+enum CreditNoteStatus {
+  ISSUED
+  VOID
+}
+
+enum ReconciliationStatus {
+  MATCHED
+  MISMATCH
+  MISSING_PROVIDER_EVENT
+  DUPLICATE_EVENT
+  INCORRECT_ACTIVATION
+  MANUAL_REVIEW
+  RESOLVED
+}
+
+enum AdministrativeAreaType {
+  PROVINCE
+  REGENCY
+  CITY
+}
+
+enum PublicationStatus {
+  DRAFT
+  PENDING_REVIEW
+  PUBLISHED
+  UNPUBLISHED
+  SUSPENDED
+}
+
+enum PublicEntityType {
+  ORGANIZER
+  COMPETITION
+  REGION
+}
+
 enum CompetitionStatus {
   DRAFT
   REGISTRATION
@@ -399,6 +549,7 @@ model User {
   isActive                    Boolean                      @default(true)
   sessionVersion              Int                          @default(0)
   lastLoginAt                 DateTime?
+  emailVerifiedAt             DateTime?
   createdAt                   DateTime                     @default(now())
   updatedAt                   DateTime                     @updatedAt
   deletedAt                   DateTime?
@@ -444,32 +595,61 @@ model User {
   createdNotifications        Notification[]               @relation("NotificationCreator")
   passwordResetTokens         PasswordResetToken[]
   grantedPublicationConsents  PublicationConsent[]         @relation("ConsentGrantActor")
+  emailVerificationTokens     EmailVerificationToken[]
+  organizerOnboardings        OrganizerOnboarding[]
+  organizationConsentRecords  OrganizationConsentRecord[]
+  sentOrganizationInvitations OrganizationInvitation[]     @relation("InvitationSender")
+  acceptedInvitations         OrganizationInvitation[]     @relation("InvitationAcceptor")
+  assignedSubscriptions       OrganizationSubscription[]   @relation("SubscriptionAssigner")
+  assignedEntitlements        CompetitionEntitlement[]     @relation("EntitlementAssigner")
+  subscriptionAudits          SubscriptionAudit[]          @relation("SubscriptionAuditActor")
+  billingAudits               BillingAudit[]               @relation("BillingAuditActor")
+  requestedRefunds            Refund[]                     @relation("RefundRequester")
+  reviewedRefunds             Refund[]                     @relation("RefundReviewer")
+  financeGrants               PlatformPermissionGrant[]    @relation("PlatformPermissionUser")
+  financeGrantsIssued         PlatformPermissionGrant[]    @relation("PlatformPermissionGrantor")
+  reviewedOrganizerProfiles   PublicOrganizerProfile[]     @relation("OrganizerProfileReviewer")
+  reviewedPublicCompetitions  CompetitionPublication[]     @relation("CompetitionPublicationReviewer")
 }
 
 model PasswordResetToken {
-  id         String    @id @default(cuid())
-  userId     String
-  tokenHash  String    @unique
-  expiresAt  DateTime
-  usedAt     DateTime?
-  createdAt  DateTime  @default(now())
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt, usedAt])
+}
+
+model EmailVerificationToken {
+  id              String    @id @default(cuid())
+  userId          String
+  tokenHash       String    @unique
+  expiresAt       DateTime
+  resendAllowedAt DateTime
+  usedAt          DateTime?
+  attempts        Int       @default(0)
+  createdAt       DateTime  @default(now())
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, expiresAt, usedAt])
 }
 
 model Organization {
-  id                      String                    @id @default(cuid())
+  id                      String                      @id @default(cuid())
   name                    String
-  slug                    String                    @unique
-  status                  OrganizationStatus        @default(PENDING)
+  slug                    String                      @unique
+  status                  OrganizationStatus          @default(PENDING)
   logoUrl                 String?
   contactEmail            String?
   contactPhone            String?
   address                 String?
   ownerId                 String?
-  createdAt               DateTime                  @default(now())
-  updatedAt               DateTime                  @updatedAt
+  createdAt               DateTime                    @default(now())
+  updatedAt               DateTime                    @updatedAt
   deletedAt               DateTime?
   memberships             OrganizationMember[]
   roles                   Role[]
@@ -477,7 +657,7 @@ model Organization {
   clubs                   Club[]
   venues                  Venue[]
   auditLogs               AuditLog[]
-  owner                   User?                     @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  owner                   User?                       @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   officials               Official[]
   competitionClubs        CompetitionClub[]
   players                 Player[]
@@ -525,6 +705,26 @@ model Organization {
   notificationDeliveries  NotificationDelivery[]
   pushSubscriptions       PushSubscription[]
   publicationConsents     PublicationConsent[]
+  organizerOnboarding     OrganizerOnboarding?
+  consentRecords          OrganizationConsentRecord[]
+  invitations             OrganizationInvitation[]
+  subscription            OrganizationSubscription?
+  competitionEntitlements CompetitionEntitlement[]
+  usageCounters           UsageCounter[]
+  usageEvents             UsageEvent[]
+  subscriptionAudits      SubscriptionAudit[]
+  billingAccount          BillingAccount?
+  billingOrders           BillingOrder[]
+  invoices                Invoice[]
+  paymentAttempts         PaymentAttempt[]
+  paymentTransactions     PaymentTransaction[]
+  paymentEvents           PaymentEvent[]
+  refunds                 Refund[]
+  creditNotes             CreditNote[]
+  billingAudits           BillingAudit[]
+  reconciliationCases     ReconciliationCase[]
+  publicProfile           PublicOrganizerProfile?
+  competitionPublications CompetitionPublication[]
 
   @@index([status, deletedAt])
   @@index([ownerId])
@@ -546,15 +746,627 @@ model OrganizationMember {
   @@index([userId, isActive])
 }
 
-model Role {
+model OrganizerOnboarding {
+  id             String                    @id @default(cuid())
+  organizationId String                    @unique
+  userId         String                    @unique
+  idempotencyKey String                    @unique
+  organizerType  OrganizerType
+  region         String
+  status         OrganizerOnboardingStatus @default(COMPLETED)
+  completedAt    DateTime?
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+  organization   Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  user           User                      @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId, status])
+}
+
+model OrganizationConsentRecord {
+  id             String       @id @default(cuid())
+  organizationId String
+  userId         String
+  termsVersion   String
+  privacyVersion String
+  acceptedAt     DateTime     @default(now())
+  requestId      String?
+  ipHash         String?
+  userAgentHash  String?
+  source         String       @default("ORGANIZER_ONBOARDING")
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, userId, termsVersion, privacyVersion])
+  @@index([organizationId, acceptedAt])
+}
+
+model OrganizationInvitation {
+  id             String                       @id @default(cuid())
+  organizationId String
+  email          String
+  roleId         String
+  invitedById    String
+  acceptedById   String?
+  tokenHash      String                       @unique
+  status         OrganizationInvitationStatus @default(PENDING)
+  expiresAt      DateTime
+  lastSentAt     DateTime                     @default(now())
+  acceptedAt     DateTime?
+  declinedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime                     @default(now())
+  updatedAt      DateTime                     @updatedAt
+  organization   Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role           Role                         @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  invitedBy      User                         @relation("InvitationSender", fields: [invitedById], references: [id], onDelete: Restrict)
+  acceptedBy     User?                        @relation("InvitationAcceptor", fields: [acceptedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status, createdAt])
+  @@index([email, status, expiresAt])
+}
+
+model Plan {
+  id        String        @id @default(cuid())
+  code      String        @unique
+  isActive  Boolean       @default(true)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  versions  PlanVersion[]
+}
+
+model PlanVersion {
+  id                      String                     @id @default(cuid())
+  planId                  String
+  version                 Int
+  displayName             String
+  description             String
+  billingModel            PlanBillingModel
+  currency                String
+  priceConfig             Json
+  isActive                Boolean                    @default(true)
+  effectiveFrom           DateTime
+  effectiveTo             DateTime?
+  createdAt               DateTime                   @default(now())
+  plan                    Plan                       @relation(fields: [planId], references: [id], onDelete: Restrict)
+  features                PlanFeature[]
+  subscriptions           OrganizationSubscription[]
+  competitionEntitlements CompetitionEntitlement[]
+  billingOrders           BillingOrder[]
+  invoiceItems            InvoiceItem[]
+
+  @@unique([planId, version])
+  @@index([isActive, effectiveFrom, effectiveTo])
+}
+
+model PlanFeature {
+  id            String               @id @default(cuid())
+  planVersionId String
+  featureKey    String
+  valueType     EntitlementValueType
+  scope         EntitlementScope     @default(ORGANIZATION)
+  enabled       Boolean              @default(false)
+  limit         Int?
+  value         Json?
+  createdAt     DateTime             @default(now())
+  planVersion   PlanVersion          @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([planVersionId, featureKey, scope])
+  @@index([featureKey, enabled])
+}
+
+model OrganizationSubscription {
+  id                 String              @id @default(cuid())
+  organizationId     String              @unique
+  planVersionId      String
+  status             SubscriptionStatus  @default(ACTIVE)
+  startsAt           DateTime            @default(now())
+  trialEndsAt        DateTime?
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  graceEndsAt        DateTime?
+  canceledAt         DateTime?
+  suspendedAt        DateTime?
+  assignedById       String?
+  reason             String
+  version            Int                 @default(1)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  planVersion        PlanVersion         @relation(fields: [planVersionId], references: [id], onDelete: Restrict)
+  assignedBy         User?               @relation("SubscriptionAssigner", fields: [assignedById], references: [id], onDelete: SetNull)
+  audits             SubscriptionAudit[]
+
+  @@index([status, currentPeriodEnd, graceEndsAt])
+}
+
+model CompetitionEntitlement {
+  id             String             @id @default(cuid())
+  organizationId String
+  competitionId  String
+  seasonId       String?
+  planVersionId  String
+  status         SubscriptionStatus @default(ACTIVE)
+  startsAt       DateTime
+  endsAt         DateTime
+  assignedById   String?
+  reason         String
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  competition    Competition        @relation(fields: [competitionId], references: [id], onDelete: Restrict)
+  season         Season?            @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  planVersion    PlanVersion        @relation(fields: [planVersionId], references: [id], onDelete: Restrict)
+  assignedBy     User?              @relation("EntitlementAssigner", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, competitionId, seasonId, status, endsAt])
+}
+
+model UsageCounter {
+  id             String       @id @default(cuid())
+  organizationId String
+  metricKey      String
+  scopeKey       String       @default("organization")
+  periodStart    DateTime
+  periodEnd      DateTime
+  used           Int          @default(0)
+  reserved       Int          @default(0)
+  version        Int          @default(1)
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  events         UsageEvent[]
+
+  @@unique([organizationId, metricKey, scopeKey, periodStart])
+  @@index([organizationId, periodEnd])
+}
+
+model UsageEvent {
+  id             String         @id @default(cuid())
+  organizationId String
+  counterId      String
+  metricKey      String
+  scopeKey       String         @default("organization")
+  eventKey       String
+  kind           UsageEventKind
+  delta          Int
+  metadata       Json?
+  createdAt      DateTime       @default(now())
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  counter        UsageCounter   @relation(fields: [counterId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, metricKey, eventKey, kind])
+  @@index([organizationId, metricKey, createdAt])
+}
+
+model SubscriptionAudit {
+  id             String                   @id @default(cuid())
+  organizationId String
+  subscriptionId String
+  actorId        String?
+  action         String
+  reason         String
+  before         Json?
+  after          Json?
+  createdAt      DateTime                 @default(now())
+  organization   Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  subscription   OrganizationSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
+  actor          User?                    @relation("SubscriptionAuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([subscriptionId, createdAt])
+}
+
+model PlatformPermissionGrant {
+  id          String   @id @default(cuid())
+  userId      String
+  permission  String
+  grantedById String?
+  reason      String
+  createdAt   DateTime @default(now())
+  user        User     @relation("PlatformPermissionUser", fields: [userId], references: [id], onDelete: Cascade)
+  grantedBy   User?    @relation("PlatformPermissionGrantor", fields: [grantedById], references: [id], onDelete: SetNull)
+
+  @@unique([userId, permission])
+  @@index([permission, userId])
+}
+
+model RegionDataset {
+  id             String                       @id
+  sourceName     String
+  sourceVersion  String                       @unique
+  sourceUrl      String
+  sourceChecksum String
+  effectiveAt    DateTime
+  importedAt     DateTime                     @default(now())
+  isActive       Boolean                      @default(false)
+  areas          AdministrativeArea[]
+  revisions      AdministrativeAreaRevision[]
+
+  @@index([isActive, effectiveAt])
+}
+
+model AdministrativeArea {
+  id                   String                       @id @default(cuid())
+  code                 String                       @unique
+  type                 AdministrativeAreaType
+  name                 String
+  slug                 String
+  parentId             String?
+  sourceDatasetId      String
+  isActive             Boolean                      @default(true)
+  retiredAt            DateTime?
+  createdAt            DateTime                     @default(now())
+  updatedAt            DateTime                     @updatedAt
+  parent               AdministrativeArea?          @relation("AreaHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children             AdministrativeArea[]         @relation("AreaHierarchy")
+  sourceDataset        RegionDataset                @relation(fields: [sourceDatasetId], references: [id], onDelete: Restrict)
+  revisions            AdministrativeAreaRevision[]
+  organizerProvinces   PublicOrganizerProfile[]     @relation("OrganizerProvince")
+  organizerCities      PublicOrganizerProfile[]     @relation("OrganizerCity")
+  competitionProvinces CompetitionPublication[]     @relation("CompetitionProvince")
+  competitionCities    CompetitionPublication[]     @relation("CompetitionCity")
+
+  @@unique([parentId, slug])
+  @@index([type, isActive, name])
+  @@index([parentId, isActive, name])
+}
+
+model AdministrativeAreaRevision {
+  id        String             @id @default(cuid())
+  areaId    String
+  datasetId String
+  snapshot  Json
+  createdAt DateTime           @default(now())
+  area      AdministrativeArea @relation(fields: [areaId], references: [id], onDelete: Restrict)
+  dataset   RegionDataset      @relation(fields: [datasetId], references: [id], onDelete: Restrict)
+
+  @@unique([areaId, datasetId])
+  @@index([datasetId, createdAt])
+}
+
+model PublicSlugRedirect {
+  id         String           @id @default(cuid())
+  entityType PublicEntityType
+  oldPath    String           @unique
+  newPath    String
+  reason     String
+  createdAt  DateTime         @default(now())
+
+  @@index([entityType, createdAt])
+}
+
+model PublicOrganizerProfile {
+  id                 String              @id @default(cuid())
+  organizationId     String              @unique
+  publicSlug         String              @unique
+  displayName        String
+  description        String?
+  logoUrl            String?
+  websiteUrl         String?
+  publicContactEmail String?
+  publicContactPhone String?
+  provinceId         String?
+  cityId             String?
+  status             PublicationStatus   @default(DRAFT)
+  submittedAt        DateTime?
+  publishedAt        DateTime?
+  unpublishedAt      DateTime?
+  suspendedAt        DateTime?
+  reviewedById       String?
+  reviewReason       String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  province           AdministrativeArea? @relation("OrganizerProvince", fields: [provinceId], references: [id], onDelete: Restrict)
+  city               AdministrativeArea? @relation("OrganizerCity", fields: [cityId], references: [id], onDelete: Restrict)
+  reviewedBy         User?               @relation("OrganizerProfileReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([status, publishedAt, id])
+  @@index([provinceId, cityId, status])
+  @@index([organizationId, status])
+}
+
+model CompetitionPublication {
+  id              String              @id @default(cuid())
+  organizationId  String
+  competitionId   String              @unique
+  publicSlug      String              @unique
+  provinceId      String?
+  cityId          String?
+  ageCategory     String?
+  status          PublicationStatus   @default(DRAFT)
+  searchText      String              @default("")
+  popularityScore Int                 @default(0)
+  submittedAt     DateTime?
+  publishedAt     DateTime?
+  unpublishedAt   DateTime?
+  suspendedAt     DateTime?
+  reviewedById    String?
+  reviewReason    String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  organization    Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  competition     Competition         @relation(fields: [competitionId], references: [id], onDelete: Restrict)
+  province        AdministrativeArea? @relation("CompetitionProvince", fields: [provinceId], references: [id], onDelete: Restrict)
+  city            AdministrativeArea? @relation("CompetitionCity", fields: [cityId], references: [id], onDelete: Restrict)
+  reviewedBy      User?               @relation("CompetitionPublicationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status, publishedAt])
+  @@index([provinceId, cityId, status, publishedAt])
+  @@index([status, popularityScore, publishedAt, id])
+  @@index([searchText(ops: raw("gin_trgm_ops"))], type: Gin, map: "CompetitionPublication_searchText_trgm_idx")
+}
+
+model BillingAccount {
+  id                   String         @id @default(cuid())
+  organizationId       String         @unique
+  legalName            String
+  billingEmail         String
+  taxProfile           Json
+  currency             String         @default("IDR")
+  providerCustomerRefs Json           @default("{}")
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  organization         Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  orders               BillingOrder[]
+  invoices             Invoice[]
+
+  @@index([organizationId, billingEmail])
+}
+
+model BillingOrder {
+  id                  String               @id @default(cuid())
+  organizationId      String
+  billingAccountId    String
+  planVersionId       String
+  competitionId       String?
+  seasonId            String?
+  idempotencyKey      String
+  status              BillingOrderStatus   @default(CREATED)
+  currency            String               @default("IDR")
+  amountMinor         BigInt
+  catalogSnapshot     Json
+  activationAppliedAt DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  billingAccount      BillingAccount       @relation(fields: [billingAccountId], references: [id], onDelete: Restrict)
+  planVersion         PlanVersion          @relation(fields: [planVersionId], references: [id], onDelete: Restrict)
+  competition         Competition?         @relation(fields: [competitionId], references: [id], onDelete: Restrict)
+  season              Season?              @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  invoice             Invoice?
+  attempts            PaymentAttempt[]
+  transactions        PaymentTransaction[]
+  refunds             Refund[]
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, status, createdAt])
+}
+
+model Invoice {
+  id                  String               @id @default(cuid())
+  organizationId      String
+  billingAccountId    String
+  orderId             String               @unique
+  invoiceNumber       String               @unique
+  status              InvoiceStatus        @default(DRAFT)
+  currency            String               @default("IDR")
+  subtotalMinor       BigInt
+  discountMinor       BigInt               @default(0)
+  taxMinor            BigInt               @default(0)
+  totalMinor          BigInt
+  refundedMinor       BigInt               @default(0)
+  taxSnapshot         Json
+  sellerSnapshot      Json
+  buyerSnapshot       Json
+  issuedAt            DateTime?
+  dueAt               DateTime
+  paidAt              DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  billingAccount      BillingAccount       @relation(fields: [billingAccountId], references: [id], onDelete: Restrict)
+  order               BillingOrder         @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  items               InvoiceItem[]
+  attempts            PaymentAttempt[]
+  transactions        PaymentTransaction[]
+  refunds             Refund[]
+  creditNotes         CreditNote[]
+  reconciliationCases ReconciliationCase[]
+
+  @@index([organizationId, status, issuedAt])
+}
+
+model InvoiceItem {
+  id              String       @id @default(cuid())
+  organizationId  String
+  invoiceId       String
+  planVersionId   String
+  competitionId   String?
+  seasonId        String?
+  description     String
+  quantity        Int          @default(1)
+  unitAmountMinor BigInt
+  subtotalMinor   BigInt
+  taxClass        String
+  snapshot        Json
+  createdAt       DateTime     @default(now())
+  invoice         Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  planVersion     PlanVersion  @relation(fields: [planVersionId], references: [id], onDelete: Restrict)
+  competition     Competition? @relation(fields: [competitionId], references: [id], onDelete: Restrict)
+  season          Season?      @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, invoiceId])
+}
+
+model PaymentAttempt {
+  id                 String               @id @default(cuid())
+  organizationId     String
+  orderId            String
+  invoiceId          String
+  provider           String
+  externalPaymentId  String               @unique
+  idempotencyKey     String
+  status             PaymentAttemptStatus @default(CREATED)
+  amountMinor        BigInt
+  currency           String               @default("IDR")
+  checkoutReference  String?
+  expiresAt          DateTime
+  lastProviderStatus String?
+  failureCode        String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  organization       Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  order              BillingOrder         @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  invoice            Invoice              @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  transactions       PaymentTransaction[]
+  events             PaymentEvent[]
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, status, createdAt])
+}
+
+model PaymentTransaction {
+  id                    String                   @id @default(cuid())
+  organizationId        String
+  orderId               String
+  invoiceId             String
+  attemptId             String
+  externalTransactionId String                   @unique
+  status                PaymentTransactionStatus
+  amountMinor           BigInt
+  refundedMinor         BigInt                   @default(0)
+  currency              String                   @default("IDR")
+  paidAt                DateTime?
+  providerSnapshot      Json
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+  organization          Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  order                 BillingOrder             @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  invoice               Invoice                  @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  attempt               PaymentAttempt           @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  refunds               Refund[]
+
+  @@index([organizationId, status, createdAt])
+}
+
+model PaymentEvent {
+  id                String             @id @default(cuid())
+  organizationId    String
+  attemptId         String
+  provider          String
+  externalEventId   String
+  eventType         String
+  status            PaymentEventStatus @default(RECEIVED)
+  payloadHash       String
+  signatureDigest   String
+  normalizedPayload Json
+  receivedAt        DateTime           @default(now())
+  processedAt       DateTime?
+  errorCode         String?
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  attempt           PaymentAttempt     @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+
+  @@unique([provider, externalEventId])
+  @@index([organizationId, status, receivedAt])
+}
+
+model Refund {
+  id               String             @id @default(cuid())
+  organizationId   String
+  orderId          String
+  invoiceId        String
+  transactionId    String
+  idempotencyKey   String
+  status           RefundStatus       @default(REQUESTED)
+  amountMinor      BigInt
+  reason           String
+  provider         String
+  externalRefundId String?            @unique
+  requestedById    String
+  reviewedById     String?
+  reviewedAt       DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  organization     Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  order            BillingOrder       @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  invoice          Invoice            @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  transaction      PaymentTransaction @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  requestedBy      User               @relation("RefundRequester", fields: [requestedById], references: [id], onDelete: Restrict)
+  reviewedBy       User?              @relation("RefundReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  creditNote       CreditNote?
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, status, createdAt])
+}
+
+model CreditNote {
+  id               String           @id @default(cuid())
+  organizationId   String
+  invoiceId        String
+  refundId         String           @unique
+  creditNoteNumber String           @unique
+  status           CreditNoteStatus @default(ISSUED)
+  currency         String           @default("IDR")
+  amountMinor      BigInt
+  reason           String
+  snapshot         Json
+  issuedAt         DateTime         @default(now())
+  organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  invoice          Invoice          @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  refund           Refund           @relation(fields: [refundId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, issuedAt])
+}
+
+model BillingAudit {
+  id             String       @id @default(cuid())
+  organizationId String
+  actorId        String?
+  action         String
+  resourceType   String
+  resourceId     String
+  reason         String
+  before         Json?
+  after          Json?
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  actor          User?        @relation("BillingAuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, resourceType, resourceId, createdAt], map: "BillingAudit_organizationId_resourceType_resourceId_createdAt_i")
+}
+
+model ReconciliationCase {
   id             String               @id @default(cuid())
+  organizationId String
+  invoiceId      String
+  fingerprint    String
+  status         ReconciliationStatus
+  issueCode      String
+  internalState  Json
+  providerState  Json
+  resolution     String?
+  createdAt      DateTime             @default(now())
+  resolvedAt     DateTime?
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  invoice        Invoice              @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, fingerprint])
+  @@index([organizationId, status, createdAt])
+}
+
+model Role {
+  id             String                   @id @default(cuid())
   organizationId String?
   name           String
   key            String
-  isSystem       Boolean              @default(false)
-  organization   Organization?        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  isSystem       Boolean                  @default(false)
+  organization   Organization?            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   members        OrganizationMember[]
   permissions    RolePermission[]
+  invitations    OrganizationInvitation[]
 
   @@unique([organizationId, key])
 }
@@ -625,9 +1437,14 @@ model Competition {
   suspensions         Suspension[]
   publicFollows       PublicFollow[]
   notifications       Notification[]
+  entitlements        CompetitionEntitlement[]
+  billingOrders       BillingOrder[]
+  invoiceItems        InvoiceItem[]
+  publication         CompetitionPublication?
 
   @@unique([organizationId, slug])
   @@index([organizationId, status, deletedAt])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Competition_name_trgm_idx")
 }
 
 model Season {
@@ -660,6 +1477,9 @@ model Season {
   transferRequests    TransferRequest[]
   disciplinaryCases   DisciplinaryCase[]
   suspensions         Suspension[]
+  entitlements        CompetitionEntitlement[]
+  billingOrders       BillingOrder[]
+  invoiceItems        InvoiceItem[]
 
   @@unique([competitionId, name])
 }
@@ -818,39 +1638,39 @@ model Team {
 }
 
 model Player {
-  id                 String                @id @default(cuid())
-  organizationId     String
-  activeClubId       String?
-  fullName           String
-  displayName        String?
-  photoUrl           String?
-  dateOfBirth        DateTime?
-  placeOfBirth       String?
-  nationality        String?
-  gender             Gender                @default(UNDISCLOSED)
-  primaryPosition    String?
-  secondaryPositions String[]              @default([])
-  preferredFoot      PreferredFoot?
-  heightCm           Int?
-  weightKg           Float?
-  status             PlayerStatus          @default(ACTIVE)
-  createdAt          DateTime              @default(now())
-  updatedAt          DateTime              @updatedAt
-  deletedAt          DateTime?
-  organization       Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  activeClub         Club?                 @relation(fields: [activeClubId], references: [id], onDelete: SetNull)
-  privateProfile     PlayerPrivateProfile?
-  registrations      PlayerRegistration[]
-  documents          PlayerDocument[]
-  availability       PlayerAvailability[]
-  lineupEntries      MatchLineupPlayer[]
-  matchEvents        MatchEvent[]          @relation("MatchEventPlayer")
-  relatedMatchEvents MatchEvent[]          @relation("MatchEventRelatedPlayer")
-  statisticsRows     PlayerStatisticsRow[]
-  transfers          TransferRequest[]
-  injuryCases        InjuryCase[]
-  disciplinaryCases  DisciplinaryCase[]
-  suspensions        Suspension[]
+  id                  String                @id @default(cuid())
+  organizationId      String
+  activeClubId        String?
+  fullName            String
+  displayName         String?
+  photoUrl            String?
+  dateOfBirth         DateTime?
+  placeOfBirth        String?
+  nationality         String?
+  gender              Gender                @default(UNDISCLOSED)
+  primaryPosition     String?
+  secondaryPositions  String[]              @default([])
+  preferredFoot       PreferredFoot?
+  heightCm            Int?
+  weightKg            Float?
+  status              PlayerStatus          @default(ACTIVE)
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  deletedAt           DateTime?
+  organization        Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  activeClub          Club?                 @relation(fields: [activeClubId], references: [id], onDelete: SetNull)
+  privateProfile      PlayerPrivateProfile?
+  registrations       PlayerRegistration[]
+  documents           PlayerDocument[]
+  availability        PlayerAvailability[]
+  lineupEntries       MatchLineupPlayer[]
+  matchEvents         MatchEvent[]          @relation("MatchEventPlayer")
+  relatedMatchEvents  MatchEvent[]          @relation("MatchEventRelatedPlayer")
+  statisticsRows      PlayerStatisticsRow[]
+  transfers           TransferRequest[]
+  injuryCases         InjuryCase[]
+  disciplinaryCases   DisciplinaryCase[]
+  suspensions         Suspension[]
   publicationConsents PublicationConsent[]
 
   @@index([organizationId, activeClubId, deletedAt])

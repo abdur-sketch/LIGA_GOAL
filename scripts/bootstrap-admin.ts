@@ -27,6 +27,7 @@ async function main() {
       update: {
         name: input.name,
         isActive: true,
+        emailVerifiedAt: new Date(),
         isPlatformAdmin: true,
         passwordHash,
       },
@@ -34,6 +35,7 @@ async function main() {
         email: input.email.toLowerCase(),
         name: input.name,
         isPlatformAdmin: true,
+        emailVerifiedAt: new Date(),
         passwordHash,
       },
     });

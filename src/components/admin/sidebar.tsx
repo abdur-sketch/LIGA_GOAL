@@ -7,6 +7,7 @@ import {
   CalendarDays,
   CalendarRange,
   ClipboardCheck,
+  CreditCard,
   GitBranch,
   Gavel,
   LandPlot,
@@ -15,6 +16,7 @@ import {
   Medal,
   Newspaper,
   ShieldCheck,
+  SearchCheck,
   Stethoscope,
   Trophy,
   UserRound,
@@ -26,6 +28,9 @@ import { Logo } from "@/components/brand/logo";
 
 const navigation = [
   [Building2, "Organisasi", "/admin/organizations"],
+  [SearchCheck, "Discovery", "/admin/discovery"],
+  [CreditCard, "Subscriptions", "/admin/subscriptions"],
+  [CreditCard, "Finance Sandbox", "/admin/finance"],
   [Trophy, "Kompetisi", "/admin/competitions"],
   [CalendarRange, "Musim", "/admin/seasons"],
   [UsersRound, "Klub", "/admin/clubs"],

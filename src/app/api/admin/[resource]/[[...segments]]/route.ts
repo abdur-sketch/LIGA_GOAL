@@ -48,7 +48,7 @@ async function POSTHandler(request: NextRequest, ctx: { params: Promise<{ resour
     await enforceMutationRateLimit(`${actor.id}:${resource}:create`);
     const input = await request.json();
     const organizationId = request.nextUrl.searchParams.get("organizationId");
-    const data = resource === "organizations" ? await createOrganization(actor, input) : organizationId ? await createResource(resource, actor, organizationId, input) : (() => { throw new ApiError(400, "organizationId wajib diisi."); })();
+    const data = resource === "organizations" ? await createOrganization(actor, input) : organizationId ? await createResource(resource, actor, organizationId, input, request.headers.get("idempotency-key") || undefined) : (() => { throw new ApiError(400, "organizationId wajib diisi."); })();
     return NextResponse.json({ data }, { status: 201 });
   } catch (error) { return handleError(error); }
 }

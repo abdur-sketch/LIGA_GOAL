@@ -2,19 +2,31 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 import { rootDb, runWithDatabaseTransaction } from "./db";
 
 const tenantPattern = /^[a-zA-Z0-9_-]+$/;
+const tokenDigestPattern = /^[a-f0-9]{64}$/;
+
+type AccessMode =
+  | "tenant"
+  | "platform"
+  | "public"
+  | "job"
+  | "identity"
+  | "membership"
+  | "provisioning"
+  | "invitation";
 
 async function setContext(
   tx: Prisma.TransactionClient,
   organizationId: string,
   platformAdmin: boolean,
-  accessMode:
-    "tenant" | "platform" | "public" | "job" | "identity" | "membership",
+  accessMode: AccessMode,
   userId = "",
+  invitationTokenHash = "",
 ) {
   await tx.$executeRaw`SELECT set_config('app.current_organization_id', ${organizationId}, true)`;
   await tx.$executeRaw`SELECT set_config('app.current_user_id', ${userId}, true)`;
   await tx.$executeRaw`SELECT set_config('app.platform_admin', ${platformAdmin ? "true" : "false"}, true)`;
   await tx.$executeRaw`SELECT set_config('app.access_mode', ${accessMode}, true)`;
+  await tx.$executeRaw`SELECT set_config('app.current_invitation_token_hash', ${invitationTokenHash}, true)`;
 }
 
 type TransactionOptions = { maxWait?: number; timeout?: number };
@@ -110,6 +122,35 @@ export function withMembershipDatabase<T>(
     throw new Error("Identity context tidak valid.");
   return client.$transaction(async (tx) => {
     await setContext(tx, "", false, "membership", userId);
+    return runWithDatabaseTransaction(tx, callback);
+  });
+}
+
+/** Creates only the organization owned by this verified identity. */
+export function withProvisioningDatabase<T>(
+  userId: string,
+  callback: () => Promise<T>,
+  client = rootDb,
+) {
+  if (!tenantPattern.test(userId))
+    throw new Error("Identity context tidak valid.");
+  return client.$transaction(async (tx) => {
+    await setContext(tx, "", false, "provisioning", userId);
+    return runWithDatabaseTransaction(tx, callback);
+  });
+}
+
+/** Discovers one pending invitation for the signed-in identity and token. */
+export function withInvitationDatabase<T>(
+  userId: string,
+  tokenHash: string,
+  callback: () => Promise<T>,
+  client = rootDb,
+) {
+  if (!tenantPattern.test(userId) || !tokenDigestPattern.test(tokenHash))
+    throw new Error("Invitation context tidak valid.");
+  return client.$transaction(async (tx) => {
+    await setContext(tx, "", false, "invitation", userId, tokenHash);
     return runWithDatabaseTransaction(tx, callback);
   });
 }
