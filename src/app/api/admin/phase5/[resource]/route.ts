@@ -13,6 +13,7 @@ import {
   recomputeStatistics,
   statisticsLookups,
 } from "@/modules/phase5/service";
+import { withRuntimeDatabaseRoute } from "@/lib/runtime-route";
 
 type Context = { params: Promise<{ resource: string }> };
 
@@ -38,7 +39,7 @@ function failure(error: unknown) {
   return NextResponse.json({ error: "Terjadi kesalahan internal." }, { status: 500 });
 }
 
-export async function GET(request: NextRequest, context: Context) {
+async function GETHandler(request: NextRequest, context: Context) {
   try {
     const [{ resource }, actor] = await Promise.all([context.params, getApiActor()]);
     if (resource === "lookups") {
@@ -98,7 +99,7 @@ export async function GET(request: NextRequest, context: Context) {
   }
 }
 
-export async function POST(request: NextRequest, context: Context) {
+async function POSTHandler(request: NextRequest, context: Context) {
   try {
     const [{ resource }, actor, body] = await Promise.all([
       context.params,
@@ -114,3 +115,6 @@ export async function POST(request: NextRequest, context: Context) {
     return failure(error);
   }
 }
+
+export const GET = withRuntimeDatabaseRoute(GETHandler);
+export const POST = withRuntimeDatabaseRoute(POSTHandler);

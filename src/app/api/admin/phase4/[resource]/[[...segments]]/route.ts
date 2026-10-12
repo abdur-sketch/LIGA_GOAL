@@ -17,6 +17,7 @@ import {
   saveLineup,
   transitionMatch,
 } from "@/modules/phase4/service";
+import { withRuntimeDatabaseRoute } from "@/lib/runtime-route";
 
 type Context = { params: Promise<{ resource: string; segments?: string[] }> };
 
@@ -67,7 +68,7 @@ function failure(error: unknown) {
   );
 }
 
-export async function GET(request: NextRequest, context: Context) {
+async function GETHandler(request: NextRequest, context: Context) {
   try {
     const [{ resource, segments = [] }, actor] = await Promise.all([
       context.params,
@@ -104,7 +105,7 @@ export async function GET(request: NextRequest, context: Context) {
   }
 }
 
-export async function POST(request: NextRequest, context: Context) {
+async function POSTHandler(request: NextRequest, context: Context) {
   try {
     const [{ resource, segments = [] }, actor] = await Promise.all([
       context.params,
@@ -167,7 +168,7 @@ export async function POST(request: NextRequest, context: Context) {
   }
 }
 
-export async function PUT(request: NextRequest, context: Context) {
+async function PUTHandler(request: NextRequest, context: Context) {
   try {
     const [{ resource, segments = [] }, actor] = await Promise.all([
       context.params,
@@ -197,3 +198,7 @@ export async function PUT(request: NextRequest, context: Context) {
     return failure(error);
   }
 }
+
+export const GET = withRuntimeDatabaseRoute(GETHandler);
+export const POST = withRuntimeDatabaseRoute(POSTHandler);
+export const PUT = withRuntimeDatabaseRoute(PUTHandler);

@@ -443,6 +443,7 @@ model User {
   articleRevisions            ArticleRevision[]
   createdNotifications        Notification[]               @relation("NotificationCreator")
   passwordResetTokens         PasswordResetToken[]
+  grantedPublicationConsents  PublicationConsent[]         @relation("ConsentGrantActor")
 }
 
 model PasswordResetToken {
@@ -523,6 +524,7 @@ model Organization {
   notifications           Notification[]
   notificationDeliveries  NotificationDelivery[]
   pushSubscriptions       PushSubscription[]
+  publicationConsents     PublicationConsent[]
 
   @@index([status, deletedAt])
   @@index([ownerId])
@@ -849,6 +851,7 @@ model Player {
   injuryCases        InjuryCase[]
   disciplinaryCases  DisciplinaryCase[]
   suspensions        Suspension[]
+  publicationConsents PublicationConsent[]
 
   @@index([organizationId, activeClubId, deletedAt])
 }
@@ -2101,6 +2104,29 @@ model PushSubscription {
 
   @@unique([organizationId, endpointHash])
   @@index([organizationId, anonymousKey, enabled])
+}
+
+model PublicationConsent {
+  id                String       @id @default(cuid())
+  organizationId    String
+  playerId          String
+  scope             String       @default("PUBLIC_PROFILE")
+  legalBasis        String
+  isMinor           Boolean
+  guardianConfirmed Boolean      @default(false)
+  evidenceHash      String
+  grantedById       String
+  grantedAt         DateTime     @default(now())
+  expiresAt         DateTime?
+  withdrawnAt       DateTime?
+  withdrawalReason  String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  player            Player       @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  grantedBy         User         @relation("ConsentGrantActor", fields: [grantedById], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, playerId, scope, withdrawnAt, expiresAt], map: "PublicationConsent_organizationId_playerId_scope_withdrawnAt_ex")
 }
 
 model AuditLog {

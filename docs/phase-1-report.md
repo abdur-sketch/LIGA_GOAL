@@ -1,7 +1,7 @@
 # Phase 1 report
 
-PROJECT: LIGA GOAL  
-PHASE: 1 — Organization, Competition & Club Management  
+PROJECT: LIGA GOAL
+PHASE: 1 — Organization, Competition & Club Management
 BASELINE: Phase 0 working tree based on commit `de0a4f6`
 
 ## Implemented features
@@ -62,5 +62,5 @@ New organization, season, venue, and official permissions extend the Phase 0 per
 - Account recovery, session revocation, centralized monitoring, and backup restore evidence remain open.
 - User invitation/provisioning is limited to adding an already-existing account; email invitation is not implemented.
 
-COMMIT STATUS: No commit or push created.  
+COMMIT STATUS: No commit or push created.
 DEPLOYMENT STATUS: Local only; no staging or production deployment.

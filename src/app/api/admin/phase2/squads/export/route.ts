@@ -5,12 +5,13 @@ import { ApiError, getApiActor } from "@/lib/auth/api";
 import { db } from "@/lib/db";
 import { listRoster } from "@/modules/phase2/service";
 import { enforceMutationRateLimit } from "@/lib/security/rate-limit";
+import { withRuntimeDatabaseRoute } from "@/lib/runtime-route";
 
 export const runtime = "nodejs";
 
 function safeText(value: string) { return value.normalize("NFKD").replace(/[^\x20-\x7E]/g, "?"); }
 
-export async function GET(request: NextRequest) {
+async function GETHandler(request: NextRequest) {
   try {
     const actor = await getApiActor(); const params = request.nextUrl.searchParams; const organizationId = params.get("organizationId"); if (!organizationId) throw new ApiError(400, "organizationId wajib diisi.");
     await enforceMutationRateLimit(`${actor.id}:${organizationId}:roster-export`, 10, 60_000);
@@ -29,3 +30,5 @@ export async function GET(request: NextRequest) {
     if (!rows.length) page.drawText("Belum ada pemain dalam roster aktif.", { x: 40, y, size: 10, font }); const bytes = await pdf.save(); return new NextResponse(Buffer.from(bytes), { headers: { "Content-Type": "application/pdf", "Content-Disposition": "attachment; filename=liga-goal-roster.pdf", "Cache-Control": "private, no-store" } });
   } catch (error) { if (error instanceof ApiError) return NextResponse.json({ error: error.message }, { status: error.status }); console.error("roster-export-error", error); return NextResponse.json({ error: "Ekspor roster gagal." }, { status: 500 }); }
 }
+
+export const GET = withRuntimeDatabaseRoute(GETHandler);

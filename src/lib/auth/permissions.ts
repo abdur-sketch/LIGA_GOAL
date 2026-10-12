@@ -1,4 +1,5 @@
-import { db } from "@/lib/db";
+import { activeDatabaseTransaction, db, rootDb } from "@/lib/db";
+import { withTenantDatabase } from "@/lib/tenant-db";
 
 export type PermissionKey =
   | "organization.view"
@@ -104,7 +105,7 @@ export type PermissionKey =
   | "permission.manage"
   | "audit.view";
 
-export async function getEffectivePermissions(
+async function getEffectivePermissionsInScope(
   userId: string,
   organizationId: string,
 ) {
@@ -141,6 +142,17 @@ export async function getEffectivePermissions(
     else permissions.delete(override.permission.key);
   }
   return permissions;
+}
+
+export async function getEffectivePermissions(
+  userId: string,
+  organizationId: string,
+) {
+  if (activeDatabaseTransaction())
+    return getEffectivePermissionsInScope(userId, organizationId);
+  return withTenantDatabase(rootDb, organizationId, () =>
+    getEffectivePermissionsInScope(userId, organizationId),
+  );
 }
 
 export async function hasPermission(

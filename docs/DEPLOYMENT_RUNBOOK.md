@@ -1,7 +1,7 @@
 # Deployment and Rollback Runbook
 
-PROJECT: LIGA GOAL  
-PHASE: 8  
+PROJECT: LIGA GOAL
+PHASE: 9
 CURRENT STATUS: deployment forbidden / **NO-GO**
 
 ## Environments
@@ -18,9 +18,11 @@ CURRENT STATUS: deployment forbidden / **NO-GO**
 3. Validate environment with `npm run env:check`; ensure no placeholder value remains.
 4. Verify encrypted database and object backups and latest restore drill.
 5. Run `npm ci`, production dependency audit, generate client, fresh migrations, schema drift, lint, typecheck, unit, integration, E2E and build.
-6. Apply migrations with a least-privilege migration role. Runtime role must not own tables or bypass RLS.
-7. Deploy one canary, verify `/api/health/live`, `/api/health/ready`, metrics, login, public portal, private authorization and event flow, then gradually increase traffic.
-8. Observe error, latency, database, job, notification, realtime and storage dashboards through the agreed soak window.
+6. Apply migrations with the migration role, then provision/grant the runtime role using `scripts/provision-runtime-role.sql`. Verify `rolsuper=false`, `rolbypassrls=false`, and no create-role/database privilege.
+7. Prove the release artifact uses the runtime URL and binds every request/job to transaction-local `app.current_organization_id` or the audited platform context. Owner-role success is insufficient.
+8. Configure public/private/quarantine buckets and external ClamAV, run synthetic EICAR quarantine, then run `npm run storage:migrate` and reconcile inventory before deleting any source.
+9. Deploy one canary, verify `/api/health/live`, `/api/health/ready`, metrics, login, public portal, private authorization and event flow, then gradually increase traffic.
+10. Observe error, latency, database, job, notification, realtime and storage dashboards through the agreed soak window.
 
 Never print secrets, use real recovery email during validation, or upload real user documents without explicit approval.
 
@@ -32,4 +34,4 @@ Never print secrets, use real recovery email during validation, or upload real u
 - Reconcile queued jobs/events and object versions before reopening writes.
 - Document incident timeline and owner decision.
 
-No staging/production project, billing, deployment, migration or external message was created in Phase 8.
+No staging/production project, billing, deployment, migration or external message was created in Phase 9. Operating cost is not estimated until hosting, database, storage, scanner, email and alerting vendors plus region/SLO/retention are selected; an earlier figure would be speculative.

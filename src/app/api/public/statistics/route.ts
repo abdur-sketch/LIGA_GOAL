@@ -2,8 +2,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import { ZodError } from "zod";
 import { ApiError } from "@/lib/auth/api";
 import { publicStatistics } from "@/modules/phase5/service";
+import { withPublicDatabaseRoute } from "@/lib/runtime-route";
 
-export async function GET(request: NextRequest) {
+async function GETHandler(request: NextRequest) {
   try {
     const params = request.nextUrl.searchParams;
     const data = await publicStatistics({
@@ -23,3 +24,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Terjadi kesalahan internal." }, { status: 500 });
   }
 }
+
+export const GET = withPublicDatabaseRoute(GETHandler);

@@ -5,6 +5,7 @@ import { ApiError, getApiActor } from "@/lib/auth/api";
 import { enforceMutationRateLimit } from "@/lib/security/rate-limit";
 import { archiveResource, createOrganization, createResource, listOrganizations, listResource, updateResource } from "@/modules/phase1/service";
 import { schemas, type ResourceName } from "@/modules/phase1/validation";
+import { withRuntimeDatabaseRoute } from "@/lib/runtime-route";
 
 const resources = new Set(Object.keys(schemas));
 
@@ -33,7 +34,7 @@ function handleError(error: unknown) {
   return NextResponse.json({ error: "Terjadi kesalahan internal." }, { status: 500 });
 }
 
-export async function GET(request: NextRequest, ctx: { params: Promise<{ resource: string; segments?: string[] }> }) {
+async function GETHandler(request: NextRequest, ctx: { params: Promise<{ resource: string; segments?: string[] }> }) {
   try {
     const [{ resource }, actor] = await Promise.all([context(ctx), getApiActor()]);
     const query = queryFrom(request);
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest, ctx: { params: Promise<{ resourc
   } catch (error) { return handleError(error); }
 }
 
-export async function POST(request: NextRequest, ctx: { params: Promise<{ resource: string; segments?: string[] }> }) {
+async function POSTHandler(request: NextRequest, ctx: { params: Promise<{ resource: string; segments?: string[] }> }) {
   try {
     const [{ resource }, actor] = await Promise.all([context(ctx), getApiActor()]);
     await enforceMutationRateLimit(`${actor.id}:${resource}:create`);
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ resour
   } catch (error) { return handleError(error); }
 }
 
-export async function PUT(request: NextRequest, ctx: { params: Promise<{ resource: string; segments?: string[] }> }) {
+async function PUTHandler(request: NextRequest, ctx: { params: Promise<{ resource: string; segments?: string[] }> }) {
   try {
     const [{ resource, id }, actor] = await Promise.all([context(ctx), getApiActor()]);
     if (!id) throw new ApiError(400, "ID wajib diisi.");
@@ -63,7 +64,7 @@ export async function PUT(request: NextRequest, ctx: { params: Promise<{ resourc
   } catch (error) { return handleError(error); }
 }
 
-export async function DELETE(request: NextRequest, ctx: { params: Promise<{ resource: string; segments?: string[] }> }) {
+async function DELETEHandler(request: NextRequest, ctx: { params: Promise<{ resource: string; segments?: string[] }> }) {
   try {
     const [{ resource, id }, actor] = await Promise.all([context(ctx), getApiActor()]);
     if (!id) throw new ApiError(400, "ID wajib diisi.");
@@ -73,3 +74,8 @@ export async function DELETE(request: NextRequest, ctx: { params: Promise<{ reso
     return NextResponse.json({ data: await archiveResource(resource, id, actor, organizationId) });
   } catch (error) { return handleError(error); }
 }
+
+export const GET = withRuntimeDatabaseRoute(GETHandler);
+export const POST = withRuntimeDatabaseRoute(POSTHandler);
+export const PUT = withRuntimeDatabaseRoute(PUTHandler);
+export const DELETE = withRuntimeDatabaseRoute(DELETEHandler);

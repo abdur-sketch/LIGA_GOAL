@@ -1,24 +1,31 @@
 # UAT Report
 
-PROJECT: LIGA GOAL  
-PHASE: 8  
-ENVIRONMENT: isolated `liga_goal_phase8_e2e_20261010`
+PROJECT: LIGA GOAL
+PHASE: 9
+DATE: 2026-10-11
+ENVIRONMENT: isolated local PostgreSQL / LocalStack, synthetic data only
 
 ## Automated evidence
 
-- Fresh deployment of all 17 migrations: PASS.
-- Desktop Chromium: 16/16 PASS.
-- Mobile Chromium: 16/16 PASS.
-- Unit: 40/40 PASS; integration: 35/35 PASS.
-- Covered workflows include organization/competition management, player and registration screens, squad export, fixture generation, match center rendering, statistics pages, transfer window creation, injury/suspension screens, CMS publication, public portal/mobile behavior and anonymous redirect.
-- Two-tenant and permission enforcement have service-level integration coverage from earlier phases.
+- Fresh deployment of 19 migrations and zero schema drift: PASS.
+- Unit 46/46 and integration 39/39: PASS.
+- RLS tenant A/B including raw SQL: PASS at the transaction-helper boundary.
+- Private S3-compatible storage, cross-tenant denial, clean promotion and EICAR quarantine: PASS locally.
+- Realtime two-instance ordered reconnect, restart and failover: PASS locally.
+- Desktop/mobile E2E: final serialized run 32/32 PASS. The initial parallel 28/32 exposed shared-seed races; the harness was serialized and CMS locator scoped.
 
-## Full competition acceptance status
+## Mandatory single 25-step flow
 
-The requested single uninterrupted 25-step synthetic competition journey is **NOT TESTED as one end-to-end scenario**. Individual parts are automated, but the evidence does not prove the complete chain including document verification, official result approval, automatic disciplinary accumulation, transfer completion, bracket progression and final public/export verification in one dataset.
+| Steps | Status | Evidence |
+|---|---|---|
+| 1–10 organization through fixture publication | Covered independently | Phase 1–3 integration and E2E. |
+| 11–17 lineup through OFFICIAL result | Covered independently | Phase 4 sequential integration. |
+| 18–21 standings, scorer, suspension and blocked lineup | Covered independently | Phase 5–6 integration. |
+| 22–25 transfer, history, bracket/export and public portal | Covered independently | Phase 3/5/6/7 integration and E2E. |
+| All 25 in one uninterrupted dataset | **NOT TESTED** | No single execution artifact proves the complete chain. |
 
-The following resilience cases are also **NOT TESTED**: network interruption with replay, concurrent live operators, realtime reconnect ordering, database failure simulation, multi-instance delivery, and correction/recomputation under concurrent load.
+Negative cases independently covered: cross-tenant access, unauthorized approval, duplicate events, optimistic concurrency, official correction, realtime reconnect, and storage failure/quarantine. They were not all executed inside one 25-step run.
 
-## UAT decision
+## Decision
 
-**FAIL release gate / incomplete acceptance.** Functional regression is healthy, but a football operations owner must execute and sign the complete scripted competition UAT after RLS and production storage are ready. Record dataset IDs, expected/actual standings and scorer tables, audit entries, retry behavior and screenshots; do not use real player data.
+**FAIL release gate.** Strong component evidence does not satisfy the explicit acceptance criterion. A football operations owner must execute and sign one clean sequential workflow, recording entity IDs, expected/actual standings and scorers, suspension/lineup decision, transfer history, bracket/export checks, public URLs, audit entries and screenshots.

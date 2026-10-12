@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/options";
 import { db } from "@/lib/db";
 import { hasPermission, type PermissionKey } from "@/lib/auth/permissions";
+import { withIdentityDatabase } from "@/lib/tenant-db";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public details?: unknown) { super(message); }
@@ -10,7 +11,7 @@ export class ApiError extends Error {
 export async function getApiActor() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) throw new ApiError(401, "Sesi autentikasi diperlukan.");
-  const user = await db.user.findUnique({ where: { id: session.user.id }, select: { id: true, isActive: true, isPlatformAdmin: true, deletedAt: true } });
+  const user = await withIdentityDatabase(() => db.user.findUnique({ where: { id: session.user.id }, select: { id: true, isActive: true, isPlatformAdmin: true, deletedAt: true } }));
   if (!user?.isActive || user.deletedAt) throw new ApiError(401, "Akun tidak aktif.");
   return user;
 }

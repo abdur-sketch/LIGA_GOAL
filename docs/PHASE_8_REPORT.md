@@ -1,8 +1,8 @@
 # LIGA GOAL Phase 8 Report
 
-PROJECT: LIGA GOAL  
-PHASE: 8  
-DATE: 2026-10-10  
+PROJECT: LIGA GOAL
+PHASE: 8
+DATE: 2026-10-10
 FINAL RECOMMENDATION: **NO-GO**
 
 ## Baseline and source protection
@@ -71,6 +71,6 @@ Public services select approved fields and apply minor publication filtering; pr
 
 Phase 8 changes include Prisma schema/migration; auth, rate-limit, proxy, observability and environment modules; recovery/session/health/metrics routes; security/CI configuration; backup/restore/load scripts; environment templates; integration tests; and the eight Phase 8 documents. Pre-existing Phase 6–7 changes remain uncommitted and were preserved.
 
-COMMIT STATUS: **not committed** (required by the prompt).  
-DEPLOYMENT STATUS: **not deployed**.  
+COMMIT STATUS: **not committed** (required by the prompt).
+DEPLOYMENT STATUS: **not deployed**.
 FINAL RECOMMENDATION: **NO-GO** until all mandatory gates in `RELEASE_CHECKLIST.md` pass and the owner explicitly approves deployment.

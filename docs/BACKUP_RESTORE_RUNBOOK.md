@@ -1,7 +1,7 @@
 # Backup and Restore Runbook
 
-PROJECT: LIGA GOAL  
-PHASE: 8
+PROJECT: LIGA GOAL
+PHASE: 11
 
 ## Targets
 
@@ -14,7 +14,7 @@ PHASE: 8
 Run from an access-controlled job runner; secrets must come from its secret manager, never source control:
 
 ```bash
-DATABASE_URL='postgresql://…' \
+BACKUP_DATABASE_URL='postgresql://dedicated-backup-role@…' \
 BACKUP_DIR='/approved/backup/path' \
 BACKUP_ENCRYPTION_KEY='from-secret-manager' \
 ./scripts/backup.sh
@@ -43,8 +43,16 @@ After restore, validate migrations and counts for users, organizations, competit
 - Restore target: `liga_goal_phase8_restore_drill_20261010`.
 - Result: PASS; 17 migrations, 13 users, 25 organizations, 18 competitions, 20 clubs, 21 players, 17 matches and 20 events verified.
 
+## Phase 9 drill evidence (2026-10-11)
+
+- Source: isolated `liga_goal_phase9_fresh_verify_20261011`, synthetic data only.
+- Encrypted artifact: `/tmp/liga-goal-phase9-backup-4Vr09s/database-20261011T135134Z.dump.enc` (ephemeral local evidence, not production retention).
+- SHA-256 manifest: PASS.
+- Restore target: `liga_goal_phase9_restore_drill_20261011`.
+- Result: PASS; 19 migrations, 51 matches and 74 RLS-enabled tables verified.
+
 ## Object storage and disaster recovery
 
-**BLOCKED:** local upload folders are not a production backup architecture. Before launch, select an approved object provider, enable private versioned buckets, cross-region or separate-account replication as required, lifecycle/retention locks, encrypted inventory, restore sampling, and documented orphan reconciliation. A database restore without matching object versions is not a complete recovery.
+**BLOCKED for production:** Phase 9 proved S3-compatible migration and quarantine locally, but not versioned object backup/restore. Before launch, select an approved object provider, enable private versioned buckets, cross-region or separate-account replication as required, lifecycle/retention locks, encrypted inventory, restore sampling, and documented orphan reconciliation. A database restore without matching object versions is not a complete recovery.
 
 Rollback uses a forward-fix migration by default. Before a risky release, take a verified backup, record the application version and migration boundary, and rehearse restoring both database and objects into an isolated environment. Never run the restore script against an ambiguously named target.

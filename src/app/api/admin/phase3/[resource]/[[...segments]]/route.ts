@@ -31,6 +31,7 @@ import {
   updateFixtureDraft,
   validateGeneration,
 } from "@/modules/phase3/service";
+import { withRuntimeDatabaseRoute } from "@/lib/runtime-route";
 
 type Context = { params: Promise<{ resource: string; segments?: string[] }> };
 function query(request: NextRequest) {
@@ -82,7 +83,7 @@ function failure(error: unknown) {
     { status: 500 },
   );
 }
-export async function GET(request: NextRequest, context: Context) {
+async function GETHandler(request: NextRequest, context: Context) {
   try {
     const [{ resource, segments = [] }, actor] = await Promise.all([
       context.params,
@@ -125,7 +126,7 @@ export async function GET(request: NextRequest, context: Context) {
     return failure(error);
   }
 }
-export async function POST(request: NextRequest, context: Context) {
+async function POSTHandler(request: NextRequest, context: Context) {
   try {
     const [{ resource, segments = [] }, actor] = await Promise.all([
       context.params,
@@ -208,7 +209,7 @@ export async function POST(request: NextRequest, context: Context) {
     return failure(error);
   }
 }
-export async function PUT(request: NextRequest, context: Context) {
+async function PUTHandler(request: NextRequest, context: Context) {
   try {
     const [{ resource, segments = [] }, actor] = await Promise.all([
       context.params,
@@ -240,7 +241,7 @@ export async function PUT(request: NextRequest, context: Context) {
     return failure(error);
   }
 }
-export async function DELETE(request: NextRequest, context: Context) {
+async function DELETEHandler(request: NextRequest, context: Context) {
   try {
     const [{ resource, segments = [] }, actor] = await Promise.all([
       context.params,
@@ -263,3 +264,8 @@ export async function DELETE(request: NextRequest, context: Context) {
     return failure(error);
   }
 }
+
+export const GET = withRuntimeDatabaseRoute(GETHandler);
+export const POST = withRuntimeDatabaseRoute(POSTHandler);
+export const PUT = withRuntimeDatabaseRoute(PUTHandler);
+export const DELETE = withRuntimeDatabaseRoute(DELETEHandler);

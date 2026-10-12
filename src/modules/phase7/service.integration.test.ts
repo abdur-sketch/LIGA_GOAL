@@ -30,7 +30,7 @@ describe.sequential("Phase 7 portal security and publishing", () => {
 
   it("protects minors unless approved parental consent exists", async () => {
     expect((await listPublicPlayers()).some((player) => player.id === minorId)).toBe(false);
-    await db.playerDocument.create({ data: { organizationId, playerId: minorId, type: "PARENTAL_CONSENT", storageKey: `consent-${suffix}`, originalName: "consent.pdf", mimeType: "application/pdf", sizeBytes: 100, verificationStatus: "APPROVED", uploadedById: actorId } });
+    await db.publicationConsent.create({ data: { organizationId, playerId: minorId, legalBasis: "guardian consent", isMinor: true, guardianConfirmed: true, evidenceHash: "a".repeat(64), grantedById: actorId } });
     expect((await listPublicPlayers()).some((player) => player.id === minorId)).toBe(true);
   });
 

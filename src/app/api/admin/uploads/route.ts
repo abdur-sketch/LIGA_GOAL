@@ -3,10 +3,11 @@ import { ApiError, getApiActor } from "@/lib/auth/api";
 import { hasPermission, type PermissionKey } from "@/lib/auth/permissions";
 import { enforceMutationRateLimit } from "@/lib/security/rate-limit";
 import { saveImage } from "@/lib/storage/images";
+import { withRuntimeDatabaseRoute } from "@/lib/runtime-route";
 
 export const runtime = "nodejs";
 
-export async function POST(request: NextRequest) {
+async function POSTHandler(request: NextRequest) {
   try {
     const actor = await getApiActor();
     await enforceMutationRateLimit(`${actor.id}:upload`, 12);
@@ -25,3 +26,5 @@ export async function POST(request: NextRequest) {
     console.error("upload-error", error); return NextResponse.json({ error: "Unggah gagal." }, { status: 500 });
   }
 }
+
+export const POST = withRuntimeDatabaseRoute(POSTHandler);

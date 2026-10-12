@@ -1,9 +1,9 @@
 # Phase report
 
-PROJECT: LIGA GOAL  
-PHASE: 0 — Architecture, Foundation & Security  
-STATUS: Implemented locally; production not approved  
-BASELINE COMMIT: `de0a4f6`  
+PROJECT: LIGA GOAL
+PHASE: 0 — Architecture, Foundation & Security
+STATUS: Implemented locally; production not approved
+BASELINE COMMIT: `de0a4f6`
 FINAL COMMIT: Not created (working tree only)
 
 ## Implemented features
@@ -59,5 +59,5 @@ REGRESSION STATUS: PASS for the Phase 0 unit/build suite.
 - Rate limiting, account recovery, distributed revocation, RLS, deeper security tests, storage, observability, backup/restore evidence, and live deployment remain open.
 - The homepage match cards are explicitly a visual shell, not production match data.
 
-PRODUCTION IMPACT: None; no deployment or production data changes.  
+PRODUCTION IMPACT: None; no deployment or production data changes.
 NEXT RECOMMENDED PHASE: Phase 1 only after review and explicit instruction.

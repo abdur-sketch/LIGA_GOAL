@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${DATABASE_URL:?DATABASE_URL is required}"
+: "${BACKUP_DATABASE_URL:?BACKUP_DATABASE_URL is required}"
 : "${BACKUP_DIR:?BACKUP_DIR is required}"
 : "${BACKUP_ENCRYPTION_KEY:?BACKUP_ENCRYPTION_KEY is required}"
 case "$BACKUP_DIR" in ""|/|"$HOME") echo "Unsafe BACKUP_DIR" >&2; exit 2;; esac
 
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
-pg_database_url="${DATABASE_URL%%\?schema=*}"
+pg_database_url="${BACKUP_DATABASE_URL%%\?schema=*}"
 mkdir -p "$BACKUP_DIR"
 database_dump="$BACKUP_DIR/database-$timestamp.dump"
 encrypted_dump="$database_dump.enc"

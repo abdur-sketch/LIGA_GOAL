@@ -6,6 +6,7 @@ import { enforceMutationRateLimit } from "@/lib/security/rate-limit";
 import { readPrivateDocument, savePrivateDocument } from "@/lib/storage/private-documents";
 import { documentMetaSchema } from "@/modules/phase2/validation";
 import { addRosterEntry, archivePlayer, createPlayer, createRegistration, getDocumentForDownload, getEligibilityRules, getPlayer, getRegistration, listPlayers, listRegistrations, listRoster, lookups, registerDocument, releaseRosterEntry, saveEligibilityRules, transitionRegistration, updatePlayer, verifyDocument } from "@/modules/phase2/service";
+import { withRuntimeDatabaseRoute } from "@/lib/runtime-route";
 
 export const runtime = "nodejs";
 type Context = { params: Promise<{ resource: string; segments?: string[] }> };
@@ -23,7 +24,7 @@ function errorResponse(error: unknown) {
   console.error("phase2-api-error", error); return NextResponse.json({ error: "Terjadi kesalahan internal." }, { status: 500 });
 }
 
-export async function GET(request: NextRequest, context: Context) {
+async function GETHandler(request: NextRequest, context: Context) {
   try {
     const [{ resource, segments = [] }, actor] = await Promise.all([context.params, getApiActor()]); const options = query(request); const id = segments[0];
     if (resource === "players") return NextResponse.json(id ? { data: await getPlayer(actor, options.organizationId, id) } : await listPlayers(actor, options));
@@ -32,14 +33,14 @@ export async function GET(request: NextRequest, context: Context) {
     if (resource === "lookups") return NextResponse.json({ data: await lookups(actor, options.organizationId) });
     if (resource === "rules" && id) return NextResponse.json({ data: await getEligibilityRules(actor, options.organizationId, id) });
     if (resource === "documents" && id && segments[1] === "download") {
-      const document = await getDocumentForDownload(actor, options.organizationId, id); const bytes = await readPrivateDocument(document.storageKey);
-      return new NextResponse(bytes, { headers: { "Content-Type": document.mimeType, "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(document.originalName)}`, "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
+      const document = await getDocumentForDownload(actor, options.organizationId, id); const bytes = await readPrivateDocument(document.storageKey, options.organizationId);
+      return new NextResponse(new Uint8Array(bytes), { headers: { "Content-Type": document.mimeType, "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(document.originalName)}`, "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
     }
     throw new ApiError(404, "Endpoint tidak ditemukan.");
   } catch (error) { return errorResponse(error); }
 }
 
-export async function POST(request: NextRequest, context: Context) {
+async function POSTHandler(request: NextRequest, context: Context) {
   try {
     const [{ resource, segments = [] }, actor] = await Promise.all([context.params, getApiActor()]); const options = query(request); await enforceMutationRateLimit(`${actor.id}:phase2:${resource}`, 20); const id = segments[0]; const action = segments[1];
     if (resource === "documents" && !id) {
@@ -57,10 +58,15 @@ export async function POST(request: NextRequest, context: Context) {
   } catch (error) { return errorResponse(error); }
 }
 
-export async function PUT(request: NextRequest, context: Context) {
+async function PUTHandler(request: NextRequest, context: Context) {
   try { const [{ resource, segments = [] }, actor] = await Promise.all([context.params, getApiActor()]); const options = query(request); if (!segments[0]) throw new ApiError(404, "Endpoint tidak ditemukan."); await enforceMutationRateLimit(`${actor.id}:phase2:${resource}:update`, 20); if (resource === "players") return NextResponse.json({ data: await updatePlayer(actor, options.organizationId, segments[0], await request.json()) }); if (resource === "rules") return NextResponse.json({ data: await saveEligibilityRules(actor, options.organizationId, segments[0], await request.json()) }); throw new ApiError(404, "Endpoint tidak ditemukan."); } catch (error) { return errorResponse(error); }
 }
 
-export async function DELETE(request: NextRequest, context: Context) {
+async function DELETEHandler(request: NextRequest, context: Context) {
   try { const [{ resource, segments = [] }, actor] = await Promise.all([context.params, getApiActor()]); const options = query(request); if (!segments[0]) throw new ApiError(400, "ID wajib diisi."); await enforceMutationRateLimit(`${actor.id}:phase2:${resource}:delete`, 10); if (resource === "players") return NextResponse.json({ data: await archivePlayer(actor, options.organizationId, segments[0]) }); if (resource === "squads") return NextResponse.json({ data: await releaseRosterEntry(actor, options.organizationId, segments[0]) }); throw new ApiError(404, "Endpoint tidak ditemukan."); } catch (error) { return errorResponse(error); }
 }
+
+export const GET = withRuntimeDatabaseRoute(GETHandler);
+export const POST = withRuntimeDatabaseRoute(POSTHandler);
+export const PUT = withRuntimeDatabaseRoute(PUTHandler);
+export const DELETE = withRuntimeDatabaseRoute(DELETEHandler);

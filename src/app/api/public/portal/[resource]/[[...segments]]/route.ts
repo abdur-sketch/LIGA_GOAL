@@ -4,6 +4,7 @@ import { ZodError } from "zod";
 import { ApiError } from "@/lib/auth/api";
 import { enforceMutationRateLimit, rateLimitKey, trustedClientAddress } from "@/lib/security/rate-limit";
 import { getPublicArticle, getPublicClub, getPublicCompetition, getPublicMatch, getPublicPlayer, getPublicStatistics, listNotifications, listPublicArticles, listPublicClubs, listPublicCompetitions, listPublicMatches, listPublicPlayers, markNotificationRead, setNotificationPreference, setPublicFollow } from "@/modules/phase7/service";
+import { withPublicDatabaseRoute } from "@/lib/runtime-route";
 
 export const runtime = "nodejs";
 type Context = { params: Promise<{ resource: string; segments?: string[] }> };
@@ -16,7 +17,7 @@ function failure(error: unknown) {
   return NextResponse.json({ error: "Terjadi kesalahan internal." }, { status: 500 });
 }
 
-export async function GET(request: NextRequest, context: Context) {
+async function GETHandler(request: NextRequest, context: Context) {
   try {
     const { resource, segments = [] } = await context.params;
     await enforceMutationRateLimit(rateLimitKey(["public", trustedClientAddress(request), resource]), 120);
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest, context: Context) {
   } catch (error) { return failure(error); }
 }
 
-export async function POST(request: NextRequest, context: Context) {
+async function POSTHandler(request: NextRequest, context: Context) {
   try {
     const { resource, segments = [] } = await context.params;
     const body = await request.json();
@@ -50,3 +51,6 @@ export async function POST(request: NextRequest, context: Context) {
     throw new ApiError(404, "Endpoint tidak ditemukan.");
   } catch (error) { return failure(error); }
 }
+
+export const GET = withPublicDatabaseRoute(GETHandler);
+export const POST = withPublicDatabaseRoute(POSTHandler);

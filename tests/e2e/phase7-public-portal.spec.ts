@@ -26,9 +26,10 @@ test.describe("Phase 7 public portal", () => {
     await page.goto("/admin/articles");
     await expect(page.getByRole("heading", { name: "Berita & pengumuman" })).toBeVisible();
     const title = `Berita Portal ${testInfo.project.name} ${Date.now()}`;
-    await page.getByLabel("Judul").fill(title);
-    await page.getByLabel("Ringkasan").fill("Ringkasan berita resmi.");
-    await page.getByLabel(/Isi/).fill("Isi berita aman dari penyelenggara.");
+    const articleForm = page.locator("main form").first();
+    await articleForm.getByLabel("Judul").fill(title);
+    await articleForm.getByLabel("Ringkasan").fill("Ringkasan berita resmi.");
+    await articleForm.getByLabel(/Isi/).fill("Isi berita aman dari penyelenggara.");
     await page.getByRole("button", { name: "Buat draft" }).click();
     const row = page.getByRole("row").filter({ hasText: title });
     await expect(row).toContainText("DRAFT");

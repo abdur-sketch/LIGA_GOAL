@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ApiError } from "@/lib/auth/api";
 import { publicAvailability } from "@/modules/phase6/service";
+import { withPublicDatabaseRoute } from "@/lib/runtime-route";
 
-export async function GET(request: NextRequest) {
+async function GETHandler(request: NextRequest) {
   try {
     const params = request.nextUrl.searchParams;
     const organizationId = params.get("organizationId");
@@ -20,3 +21,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Terjadi kesalahan internal." }, { status: 500 });
   }
 }
+
+export const GET = withPublicDatabaseRoute(GETHandler);

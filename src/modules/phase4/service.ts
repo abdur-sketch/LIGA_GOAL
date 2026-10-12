@@ -288,7 +288,9 @@ export async function eligiblePlayers(
       ),
     ),
   );
-  return registrations.filter((_, index) => checks[index]?.result === "ELIGIBLE");
+  return registrations.filter(
+    (_, index) => checks[index]?.result === "ELIGIBLE",
+  );
 }
 
 export async function saveLineup(
@@ -329,16 +331,19 @@ export async function saveLineup(
   const byId = new Map(registrations.map((item) => [item.id, item]));
   const eligibility = new Map(
     await Promise.all(
-      data.players.map(async (item) => [
-        item.playerId,
-        await eligibilityAt(
-          organizationId,
-          item.playerId,
-          match.seasonId,
-          team.clubId,
-          match.kickoffAt,
-        ),
-      ] as const),
+      data.players.map(
+        async (item) =>
+          [
+            item.playerId,
+            await eligibilityAt(
+              organizationId,
+              item.playerId,
+              match.seasonId,
+              team.clubId,
+              match.kickoffAt,
+            ),
+          ] as const,
+      ),
     ),
   );
   const matchRules = await rules(match.competitionId);
@@ -446,7 +451,12 @@ async function assertCurrentLineupEligibility(
     include: { players: true },
   });
   for (const lineup of lineups) {
-    const team = lineup.teamId === match.homeTeamId ? match.homeTeam : lineup.teamId === match.awayTeamId ? match.awayTeam : null;
+    const team =
+      lineup.teamId === match.homeTeamId
+        ? match.homeTeam
+        : lineup.teamId === match.awayTeamId
+          ? match.awayTeam
+          : null;
     if (!team) throw new ApiError(422, "Lineup bukan milik tim pertandingan.");
     const checks = await Promise.all(
       lineup.players.map(async (player) => ({
@@ -462,7 +472,11 @@ async function assertCurrentLineupEligibility(
     );
     const invalid = checks.filter((item) => item.check.result !== "ELIGIBLE");
     if (invalid.length)
-      throw new ApiError(422, "Lineup memuat pemain yang tidak eligible pada waktu kickoff.", invalid);
+      throw new ApiError(
+        422,
+        "Lineup memuat pemain yang tidak eligible pada waktu kickoff.",
+        invalid,
+      );
   }
 }
 
@@ -1333,5 +1347,103 @@ export async function realtimeMessages(
       topic: item.topic,
       payload: item.payload,
     })),
+  };
+}
+
+type PublicRealtimeRow = {
+  id: string;
+  organizationId: string;
+  status: string;
+  homeScore: number;
+  awayScore: number;
+  shootoutHome: number;
+  shootoutAway: number;
+  version: number;
+  clockState: unknown;
+  messages: Array<{ sequence: string; topic: string; payload: unknown }>;
+};
+
+/**
+ * High-volume public polling path. Context initialization, published-data
+ * predicate, snapshot and outbox replay execute as one PostgreSQL statement,
+ * so no interactive transaction waits in Prisma's acquisition queue.
+ */
+export async function publicRealtimeMessages(
+  matchId: string,
+  after = BigInt(0),
+) {
+  const rows = await db.$queryRaw<PublicRealtimeRow[]>(Prisma.sql`
+    WITH rls_context AS MATERIALIZED (
+      SELECT
+        set_config('app.current_organization_id', '', true),
+        set_config('app.platform_admin', 'true', true),
+        set_config('app.access_mode', 'public', true)
+    ), public_match AS MATERIALIZED (
+      SELECT
+        m.id,
+        m."organizationId",
+        m.status::text AS status,
+        m."homeScore",
+        m."awayScore",
+        m."shootoutHome",
+        m."shootoutAway",
+        m.version,
+        CASE WHEN c.id IS NULL THEN NULL ELSE jsonb_build_object(
+          'id', c.id,
+          'matchId', c."matchId",
+          'period', c.period,
+          'elapsedSeconds', c."elapsedSeconds",
+          'running', c.running,
+          'startedAt', c."startedAt",
+          'version', c.version,
+          'updatedAt', c."updatedAt"
+        ) END AS "clockState"
+      FROM rls_context
+      CROSS JOIN "Match" m
+      JOIN "Organization" organization ON organization.id = m."organizationId"
+      LEFT JOIN "MatchClockState" c ON c."matchId" = m.id
+      WHERE m.id = ${matchId}
+        AND m."publishedAt" IS NOT NULL
+        AND organization.status = 'ACTIVE'
+        AND organization."deletedAt" IS NULL
+    )
+    SELECT
+      public_match.*,
+      COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+          'sequence', replay.sequence::text,
+          'topic', replay.topic,
+          'payload', replay.payload
+        ) ORDER BY replay.sequence)
+        FROM (
+          SELECT outbox.sequence, outbox.topic, outbox.payload
+          FROM "MatchRealtimeOutbox" outbox
+          WHERE outbox."matchId" = public_match.id
+            AND outbox.sequence > ${after}
+          ORDER BY outbox.sequence
+          LIMIT 100
+        ) replay
+      ), '[]'::jsonb) AS messages
+    FROM public_match
+  `);
+  const match = rows[0];
+  if (!match) throw new ApiError(404, "Pertandingan tidak ditemukan.");
+  return {
+    snapshot: {
+      sequence: "0",
+      topic: "snapshot",
+      payload: {
+        id: match.id,
+        organizationId: match.organizationId,
+        status: match.status,
+        homeScore: match.homeScore,
+        awayScore: match.awayScore,
+        shootoutHome: match.shootoutHome,
+        shootoutAway: match.shootoutAway,
+        version: match.version,
+        clockState: match.clockState,
+      },
+    },
+    messages: match.messages,
   };
 }

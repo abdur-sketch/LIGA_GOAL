@@ -1,5 +1,5 @@
 import { Prisma, type AuditAction } from "@prisma/client";
-import { db } from "@/lib/db";
+import { db, rootDb } from "@/lib/db";
 import {
   ApiError,
   authorizeOrganization,
@@ -7,6 +7,7 @@ import {
   type getApiActor,
 } from "@/lib/auth/api";
 import type { PermissionKey } from "@/lib/auth/permissions";
+import { withMembershipDatabase, withTenantDatabase } from "@/lib/tenant-db";
 import { schemas, type ResourceName } from "./validation";
 
 type Actor = Awaited<ReturnType<typeof getApiActor>>;
@@ -309,21 +310,35 @@ export async function listOrganizations(actor: Actor, query: Query) {
       ? {}
       : { memberships: { some: { userId: actor.id, isActive: true } } }),
   };
-  const [data, total] = await Promise.all([
-    db.organization.findMany({
-      where,
-      include: {
-        owner: { select: { id: true, name: true, email: true } },
-        _count: {
-          select: { memberships: true, competitions: true, clubs: true },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-      skip: (query.page - 1) * query.pageSize,
-      take: query.pageSize,
-    }),
-    db.organization.count({ where }),
-  ]);
+  const page = () =>
+    Promise.all([
+      db.organization.findMany({
+        where,
+        select: { id: true },
+        orderBy: { createdAt: "desc" },
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize,
+      }),
+      db.organization.count({ where }),
+    ]);
+  const [references, total] = actor.isPlatformAdmin
+    ? await page()
+    : await withMembershipDatabase(actor.id, page);
+  const data = await Promise.all(
+    references.map(({ id }) =>
+      withTenantDatabase(rootDb, id, () =>
+        db.organization.findUniqueOrThrow({
+          where: { id },
+          include: {
+            owner: { select: { id: true, name: true, email: true } },
+            _count: {
+              select: { memberships: true, competitions: true, clubs: true },
+            },
+          },
+        }),
+      ),
+    ),
+  );
   const visible = await Promise.all(
     data.map(async (organization) => ({
       ...organization,

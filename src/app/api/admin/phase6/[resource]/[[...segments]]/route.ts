@@ -24,6 +24,7 @@ import {
   phase6Lookups,
   updateInjury,
 } from "@/modules/phase6/service";
+import { withRuntimeDatabaseRoute } from "@/lib/runtime-route";
 
 export const runtime = "nodejs";
 type Context = { params: Promise<{ resource: string; segments?: string[] }> };
@@ -57,7 +58,7 @@ function failure(error: unknown) {
   return NextResponse.json({ error: "Terjadi kesalahan internal." }, { status: 500 });
 }
 
-export async function GET(request: NextRequest, context: Context) {
+async function GETHandler(request: NextRequest, context: Context) {
   try {
     const [{ resource, segments = [] }, actor] = await Promise.all([context.params, getApiActor()]);
     const options = query(request);
@@ -75,7 +76,7 @@ export async function GET(request: NextRequest, context: Context) {
   }
 }
 
-export async function POST(request: NextRequest, context: Context) {
+async function POSTHandler(request: NextRequest, context: Context) {
   try {
     const [{ resource, segments = [] }, actor] = await Promise.all([context.params, getApiActor()]);
     const options = query(request);
@@ -98,3 +99,6 @@ export async function POST(request: NextRequest, context: Context) {
     return failure(error);
   }
 }
+
+export const GET = withRuntimeDatabaseRoute(GETHandler);
+export const POST = withRuntimeDatabaseRoute(POSTHandler);

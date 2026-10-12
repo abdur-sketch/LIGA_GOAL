@@ -102,7 +102,13 @@ const permissions = [
 ];
 
 export default async function globalSetup() {
-  const db = new PrismaClient();
+  const db = new PrismaClient({
+    datasources: {
+      db: {
+        url: process.env.E2E_SETUP_DATABASE_URL ?? process.env.DATABASE_URL,
+      },
+    },
+  });
   try {
     const user = await db.user.upsert({
       where: { email: "e2e-admin@ligagoal.test" },
