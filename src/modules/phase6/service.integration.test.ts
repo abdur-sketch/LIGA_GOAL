@@ -75,7 +75,9 @@ describe.sequential("Phase 6 player operations", () => {
   });
 
   it("completes an idempotent, approval-ordered transfer while preserving history", async () => {
-    const input = { organizationId, competitionId, seasonId, playerId, sourceClubId, destinationClubId, transferWindowId, type: "PERMANENT" as const, effectiveAt: new Date(Date.now() - 1_000), supportingDocs: [], idempotencyKey: `transfer-${suffix}` };
+    // Fixed inside the synthetic season so the historical assertions do not
+    // become date-bound when the suite runs on the transfer day.
+    const input = { organizationId, competitionId, seasonId, playerId, sourceClubId, destinationClubId, transferWindowId, type: "PERMANENT" as const, effectiveAt: new Date("2026-06-01T00:00:00Z"), supportingDocs: [], idempotencyKey: `transfer-${suffix}` };
     const draft = await createTransfer(actor(), input);
     expect((await createTransfer(actor(), input)).id).toBe(draft.id);
     await expect(createTransfer(actor(), { ...input, idempotencyKey: `duplicate-${suffix}` })).rejects.toMatchObject({ status: 409 } satisfies Partial<ApiError>);

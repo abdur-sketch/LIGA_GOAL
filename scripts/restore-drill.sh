@@ -8,6 +8,9 @@ set -euo pipefail
 [[ "$CONFIRM_ISOLATED_RESTORE" == "YES" ]] || { echo "Restore confirmation missing" >&2; exit 2; }
 [[ "$RESTORE_DATABASE_URL" =~ (test|restore|drill) ]] || { echo "Target name must contain test, restore, or drill" >&2; exit 2; }
 
+# Fail before decrypting or invoking pg_restore if target identity is unclear.
+DATABASE_URL="$RESTORE_DATABASE_URL" ./node_modules/.bin/tsx scripts/database-preflight.ts restore
+
 temporary_dump="$(mktemp "${TMPDIR:-/tmp}/liga-goal-restore.XXXXXX.dump")"
 pg_restore_url="${RESTORE_DATABASE_URL%%\?schema=*}"
 trap 'rm -f "$temporary_dump"' EXIT

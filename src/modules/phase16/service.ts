@@ -79,6 +79,35 @@ async function searchPublicCompetitionsUnsafe(raw: unknown) {
     : input.sort === "popular"
       ? [{ publication: { popularityScore: "desc" } }, { publication: { publishedAt: "desc" } }, { id: "asc" }]
       : [{ publication: { publishedAt: "desc" } }, { id: "asc" }];
+  // PostgreSQL's RLS security barrier can otherwise choose Competition as the
+  // leading relation and probe every publication. Materializing the selective
+  // trigram candidate set first reduced the 10k RLS plan from ~337ms to ~19ms.
+  if (search) {
+    const candidateFilters = Prisma.sql`
+      cp.status='PUBLISHED' AND cp."searchText" LIKE ${`%${search}%`}
+      ${areas.province ? Prisma.sql`AND cp."provinceId"=${areas.province.id}` : Prisma.empty}
+      ${areas.city ? Prisma.sql`AND cp."cityId"=${areas.city.id}` : Prisma.empty}
+      ${input.ageCategory ? Prisma.sql`AND lower(cp."ageCategory")=lower(${input.ageCategory})` : Prisma.empty}`;
+    const competitionFilters = Prisma.sql`
+      c."deletedAt" IS NULL AND c.status IN ('REGISTRATION','ONGOING','COMPLETED','ARCHIVED')
+      ${input.status ? Prisma.sql`AND c.status=CAST(${input.status} AS "CompetitionStatus")` : Prisma.empty}
+      ${input.format ? Prisma.sql`AND c.format=CAST(${input.format} AS "CompetitionFormat")` : Prisma.empty}
+      ${input.season ? Prisma.sql`AND EXISTS (SELECT 1 FROM "Season" s WHERE s."competitionId"=c.id AND (s.id=${input.season} OR lower(s.name)=lower(${input.season})))` : Prisma.empty}
+      AND o.status='ACTIVE' AND o."deletedAt" IS NULL AND p.status='PUBLISHED'`;
+    const from = Prisma.sql`FROM candidates cp JOIN "Competition" c ON c.id=cp."competitionId" JOIN "Organization" o ON o.id=c."organizationId" JOIN "PublicOrganizerProfile" p ON p."organizationId"=o.id WHERE ${competitionFilters}`;
+    const ordering = input.sort === "upcoming" ? Prisma.sql`c."startsAt" ASC,c.id ASC` : input.sort === "popular" ? Prisma.sql`cp."popularityScore" DESC,cp."publishedAt" DESC,c.id ASC` : Prisma.sql`cp."publishedAt" DESC,c.id ASC`;
+    const candidateCte = Prisma.sql`WITH candidates AS MATERIALIZED (SELECT "competitionId","publishedAt","popularityScore" FROM "CompetitionPublication" cp WHERE ${candidateFilters})`;
+    const [countRows, idRows] = await Promise.all([
+      db.$queryRaw<Array<{ total: bigint }>>(Prisma.sql`${candidateCte} SELECT count(*)::bigint total ${from}`),
+      db.$queryRaw<Array<{ id: string }>>(Prisma.sql`${candidateCte} SELECT c.id ${from} ORDER BY ${ordering} OFFSET ${(input.page - 1) * input.pageSize} LIMIT ${input.pageSize}`),
+    ]);
+    const ids = idRows.map((row) => row.id);
+    const unordered = ids.length ? await db.competition.findMany({ where: { ...discoveryCompetitionWhere, id: { in: ids } }, include: directoryInclude }) : [];
+    const byId = new Map(unordered.map((item) => [item.id, item]));
+    const items = ids.flatMap((id) => { const item = byId.get(id); return item ? [item] : []; });
+    const total = Number(countRows[0]?.total ?? 0);
+    return { items, total, page: input.page, pageSize: input.pageSize, pageCount: Math.ceil(total / input.pageSize), filters: input };
+  }
   const [total, items] = await Promise.all([
     db.competition.count({ where }),
     db.competition.findMany({ where, include: directoryInclude, orderBy, skip: (input.page - 1) * input.pageSize, take: input.pageSize }),
@@ -112,7 +141,7 @@ async function listPublicOrganizersUnsafe(raw: unknown) {
       select: {
         id: true, publicSlug: true, displayName: true, description: true, logoUrl: true, websiteUrl: true, publishedAt: true,
         province: { select: { name: true, slug: true } }, city: { select: { name: true, slug: true } },
-        organization: { select: { _count: { select: { competitionPublications: { where: { status: published } } } } } },
+        organization: { select: { verification: { select: { status: true } }, _count: { select: { competitionPublications: { where: { status: published } } } } } },
       },
       orderBy: [{ publishedAt: "desc" }, { id: "asc" }], skip: (input.page - 1) * input.pageSize, take: input.pageSize,
     }),
@@ -129,7 +158,7 @@ export const getPublicOrganizer = (slug: string) => inPublicDatabase(async () =>
       id: true, organizationId: true, publicSlug: true, displayName: true, description: true, logoUrl: true, websiteUrl: true,
       publicContactEmail: true, publicContactPhone: true, publishedAt: true, updatedAt: true,
       province: { select: { name: true, slug: true, code: true } }, city: { select: { name: true, slug: true, code: true } },
-      organization: { select: { competitions: {
+      organization: { select: { verification: { select: { status: true } }, competitions: {
         where: discoveryCompetitionWhere,
         select: { id: true, name: true, description: true, logoUrl: true, status: true, startsAt: true, endsAt: true, publication: { select: { publicSlug: true, ageCategory: true, publishedAt: true } } },
         orderBy: [{ startsAt: "desc" }, { id: "asc" }],

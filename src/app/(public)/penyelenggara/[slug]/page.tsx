@@ -67,7 +67,9 @@ export default async function OrganizerProfile({ params }: Props) {
       <div className="mx-auto max-w-7xl px-5 py-10 lg:px-8">
         <section className="rounded-2xl border bg-surface/60 p-6">
           <h2 className="font-display text-xl font-bold">Informasi publik</h2>
+          {item.organization.verification?.status === "VERIFIED" && <p className="mt-3 inline-flex rounded-full bg-primary/15 px-3 py-1 text-xs font-bold text-primary">Organizer terverifikasi</p>}
           <div className="mt-4 flex flex-wrap gap-3 text-sm text-muted">
+            <Link className="text-red-300" href={`/laporkan?type=organizer&id=${item.id}`}>Laporkan profil</Link>
             {item.websiteUrl && (
               <a
                 className="text-primary"

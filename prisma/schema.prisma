@@ -158,6 +158,33 @@ enum PublicationStatus {
   SUSPENDED
 }
 
+enum OrganizerVerificationStatus {
+  UNVERIFIED
+  PENDING_REVIEW
+  VERIFIED
+  REJECTED
+  SUSPENDED
+}
+
+enum ModerationTargetType {
+  ORGANIZER
+  COMPETITION
+}
+
+enum AbuseReportStatus {
+  OPEN
+  IN_REVIEW
+  ACTIONED
+  DISMISSED
+}
+
+enum ModerationAppealStatus {
+  PENDING
+  UPHELD
+  OVERTURNED
+  WITHDRAWN
+}
+
 enum PublicEntityType {
   ORGANIZER
   COMPETITION
@@ -610,6 +637,10 @@ model User {
   financeGrantsIssued         PlatformPermissionGrant[]    @relation("PlatformPermissionGrantor")
   reviewedOrganizerProfiles   PublicOrganizerProfile[]     @relation("OrganizerProfileReviewer")
   reviewedPublicCompetitions  CompetitionPublication[]     @relation("CompetitionPublicationReviewer")
+  reviewedVerifications       OrganizerVerification[]      @relation("OrganizerVerificationReviewer")
+  assignedAbuseReports        AbuseReport[]                @relation("AbuseReportAssignee")
+  moderationNotes             ModerationNote[]             @relation("ModerationNoteAuthor")
+  reviewedModerationAppeals   ModerationAppeal[]           @relation("ModerationAppealReviewer")
 }
 
 model PasswordResetToken {
@@ -725,6 +756,9 @@ model Organization {
   reconciliationCases     ReconciliationCase[]
   publicProfile           PublicOrganizerProfile?
   competitionPublications CompetitionPublication[]
+  verification            OrganizerVerification?
+  abuseReports            AbuseReport[]
+  moderationAppeals       ModerationAppeal[]
 
   @@index([status, deletedAt])
   @@index([ownerId])
@@ -1098,6 +1132,81 @@ model CompetitionPublication {
   @@index([searchText(ops: raw("gin_trgm_ops"))], type: Gin, map: "CompetitionPublication_searchText_trgm_idx")
 }
 
+model OrganizerVerification {
+  id             String                      @id @default(cuid())
+  organizationId String                      @unique
+  status         OrganizerVerificationStatus @default(UNVERIFIED)
+  evidence       Json                        @default("{}")
+  submittedAt    DateTime?
+  reviewedAt     DateTime?
+  reviewedById   String?
+  reviewReason   String?
+  version        Int                         @default(1)
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
+  organization   Organization                @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  reviewedBy     User?                       @relation("OrganizerVerificationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([status, submittedAt, id])
+}
+
+model AbuseReport {
+  id              String               @id @default(cuid())
+  organizationId  String
+  competitionId   String?
+  targetType      ModerationTargetType
+  category        String
+  description     String
+  reporterContact String?
+  sourceHash      String
+  status          AbuseReportStatus    @default(OPEN)
+  assignedToId    String?
+  resolution      String?
+  version         Int                  @default(1)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  resolvedAt      DateTime?
+  organization    Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  competition     Competition?         @relation(fields: [competitionId], references: [id], onDelete: Restrict)
+  assignedTo      User?                @relation("AbuseReportAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  notes           ModerationNote[]
+  appeals         ModerationAppeal[]
+
+  @@index([status, createdAt, id])
+  @@index([organizationId, targetType, createdAt])
+  @@index([competitionId, createdAt])
+}
+
+model ModerationNote {
+  id        String      @id @default(cuid())
+  reportId  String
+  authorId  String
+  body      String
+  createdAt DateTime    @default(now())
+  report    AbuseReport @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  author    User        @relation("ModerationNoteAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([reportId, createdAt])
+}
+
+model ModerationAppeal {
+  id             String                 @id @default(cuid())
+  reportId       String
+  organizationId String
+  reason         String
+  status         ModerationAppealStatus @default(PENDING)
+  reviewedById   String?
+  reviewReason   String?
+  createdAt      DateTime               @default(now())
+  reviewedAt     DateTime?
+  report         AbuseReport            @relation(fields: [reportId], references: [id], onDelete: Restrict)
+  organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  reviewedBy     User?                  @relation("ModerationAppealReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@unique([reportId, organizationId])
+  @@index([status, createdAt, id])
+}
+
 model BillingAccount {
   id                   String         @id @default(cuid())
   organizationId       String         @unique
@@ -1441,6 +1550,7 @@ model Competition {
   billingOrders       BillingOrder[]
   invoiceItems        InvoiceItem[]
   publication         CompetitionPublication?
+  abuseReports        AbuseReport[]
 
   @@unique([organizationId, slug])
   @@index([organizationId, status, deletedAt])

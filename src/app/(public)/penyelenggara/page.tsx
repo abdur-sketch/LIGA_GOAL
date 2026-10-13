@@ -37,8 +37,8 @@ export default async function OrganizerDirectory({ searchParams }: Props) {
     <>
       <PageHero
         eyebrow="Direktori nasional"
-        title="Penyelenggara terverifikasi"
-        description="Hanya profil berstatus Published dari organisasi aktif yang ditampilkan."
+        title="Direktori penyelenggara"
+        description="Profil berstatus Published dari organisasi aktif ditampilkan; badge verifikasi hanya muncul setelah pemeriksaan terpisah."
       />
       <div className="mx-auto max-w-7xl px-5 py-10 lg:px-8">
         <form
@@ -107,7 +107,7 @@ export default async function OrganizerDirectory({ searchParams }: Props) {
               className="rounded-2xl border bg-surface/60 p-6 hover:border-primary/40"
             >
               <h2 className="font-display text-xl font-bold">
-                {item.displayName}
+                {item.displayName}{item.organization.verification?.status === "VERIFIED" && <span className="ml-2 rounded-full bg-primary/15 px-2 py-1 text-[10px] font-bold uppercase text-primary">Terverifikasi</span>}
               </h2>
               <p className="mt-2 text-xs text-primary">
                 {item.city?.name || item.province?.name || "Indonesia"}

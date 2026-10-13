@@ -6,6 +6,10 @@ set -euo pipefail
 : "${BACKUP_ENCRYPTION_KEY:?BACKUP_ENCRYPTION_KEY is required}"
 case "$BACKUP_DIR" in ""|/|"$HOME") echo "Unsafe BACKUP_DIR" >&2; exit 2;; esac
 
+# Database safety is intentionally checked before pg_dump. The same explicit
+# identity and allowlists used by migrations are required for backup jobs.
+DATABASE_URL="$BACKUP_DATABASE_URL" ./node_modules/.bin/tsx scripts/database-preflight.ts backup
+
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
 pg_database_url="${BACKUP_DATABASE_URL%%\?schema=*}"
 mkdir -p "$BACKUP_DIR"

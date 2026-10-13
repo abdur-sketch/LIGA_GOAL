@@ -1,5 +1,6 @@
 import { hash } from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
+import { assertDatabaseSafety, describeDatabaseUrl } from "../../src/lib/database-safety";
 
 const permissions = [
   "organization.view",
@@ -11,6 +12,7 @@ const permissions = [
   "organization.billing.manage",
   "organization.refund.request",
   "organization.public_profile.manage",
+  "organization.moderation.appeal",
   "competition.view",
   "competition.create",
   "competition.update",
@@ -109,10 +111,25 @@ const permissions = [
 ];
 
 export default async function globalSetup() {
+  const setupUrl = process.env.E2E_SETUP_DATABASE_URL ?? process.env.DATABASE_URL;
+  if (!setupUrl || !process.env.DATABASE_URL) throw new Error("DATABASE_URL dan E2E_SETUP_DATABASE_URL wajib tersedia untuk E2E.");
+  assertDatabaseSafety({
+    operation: "test",
+    environment: process.env.LIGA_GOAL_ENVIRONMENT,
+    databaseUrl: setupUrl,
+    allowedDatabases: process.env.DATABASE_NAME_ALLOWLIST,
+    allowedHosts: process.env.DATABASE_HOST_ALLOWLIST,
+    mutationConfirmation: process.env.CONFIRM_DATABASE_MUTATION,
+  });
+  const appTarget = describeDatabaseUrl(process.env.DATABASE_URL);
+  const setupTarget = describeDatabaseUrl(setupUrl);
+  if (appTarget.host !== setupTarget.host || appTarget.databaseName !== setupTarget.databaseName) {
+    throw new Error("E2E setup dan aplikasi wajib menunjuk database test yang sama.");
+  }
   const db = new PrismaClient({
     datasources: {
       db: {
-        url: process.env.E2E_SETUP_DATABASE_URL ?? process.env.DATABASE_URL,
+        url: setupUrl,
       },
     },
   });
@@ -133,7 +150,7 @@ export default async function globalSetup() {
         emailVerifiedAt: new Date(),
       },
     });
-    for (const permission of ["finance.billing.view", "finance.billing.manage", "discovery.moderate.view", "discovery.moderate.manage"]) {
+    for (const permission of ["finance.billing.view", "finance.billing.manage", "discovery.moderate.view", "discovery.moderate.manage", "platform.operations.view", "platform.organizations.manage", "platform.users.view", "platform.audit.view", "organizer.verification.view", "organizer.verification.manage", "abuse.moderate.view", "abuse.moderate.manage"]) {
       await db.platformPermissionGrant.upsert({
         where: { userId_permission: { userId: user.id, permission } },
         update: {},
@@ -221,6 +238,11 @@ export default async function globalSetup() {
       where: { organizationId: organization.id },
       update: { status: "PUBLISHED", displayName: organization.name, provinceId: province.id, cityId: city.id, publishedAt: new Date(), reviewedById: user.id },
       create: { organizationId: organization.id, publicSlug: organization.slug, displayName: organization.name, description: "Penyelenggara fixture E2E nasional.", status: "PUBLISHED", provinceId: province.id, cityId: city.id, publishedAt: new Date(), reviewedById: user.id },
+    });
+    await db.organizerVerification.upsert({
+      where: { organizationId: organization.id },
+      update: { status: "VERIFIED", reviewedAt: new Date(), reviewedById: user.id, reviewReason: "E2E verified fixture" },
+      create: { organizationId: organization.id, status: "VERIFIED", reviewedAt: new Date(), reviewedById: user.id, reviewReason: "E2E verified fixture" },
     });
     await db.competitionPublication.upsert({
       where: { competitionId: competition.id },

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   Activity,
+  AlertTriangle,
   ArrowRightLeft,
   Ban,
   Building2,
@@ -17,6 +18,7 @@ import {
   Newspaper,
   ShieldCheck,
   SearchCheck,
+  ShieldAlert,
   Stethoscope,
   Trophy,
   UserRound,
@@ -27,6 +29,13 @@ import {
 import { Logo } from "@/components/brand/logo";
 
 const navigation = [
+  [Activity, "Operations", "/admin"],
+  [Building2, "Tenant directory", "/admin/platform-organizations"],
+  [UsersRound, "Users", "/admin/users"],
+  [ShieldCheck, "Verification", "/admin/verification"],
+  [ShieldAlert, "Moderation", "/admin/abuse"],
+  [AlertTriangle, "Health", "/admin/operations"],
+  [ListChecks, "Audit", "/admin/audit"],
   [Building2, "Organisasi", "/admin/organizations"],
   [SearchCheck, "Discovery", "/admin/discovery"],
   [CreditCard, "Subscriptions", "/admin/subscriptions"],

@@ -16,8 +16,9 @@ test.describe("Phase 16 national discovery", () => {
   test("mobile directory is usable without exposing moderation states", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/penyelenggara");
-    await expect(page.getByRole("heading", { name: "Penyelenggara terverifikasi" })).toBeVisible();
-    await expect(page.getByText("E2E Liga Goal", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Direktori penyelenggara" })).toBeVisible();
+    await expect(page.getByRole("link", { name: /E2E Liga Goal/ })).toBeVisible();
+    await expect(page.getByText("Terverifikasi", { exact: true })).toBeVisible();
     await expect(page.getByText("PENDING_REVIEW")).toHaveCount(0);
     await expect(page.getByText("SUSPENDED")).toHaveCount(0);
   });

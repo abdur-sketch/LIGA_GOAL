@@ -12,6 +12,7 @@ export type PermissionKey =
   | "organization.billing.manage"
   | "organization.refund.request"
   | "organization.public_profile.manage"
+  | "organization.moderation.appeal"
   | "competition.view"
   | "competition.create"
   | "competition.update"

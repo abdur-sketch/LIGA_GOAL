@@ -4,17 +4,18 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "tsx scripts/validate-env.ts && tsx scripts/database-preflight.ts build && prisma generate && next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:integration": "vitest run --config vitest.integration.config.mts",
-    "test:e2e": "playwright test",
+    "test:integration": "tsx scripts/database-preflight.ts test && vitest run --config vitest.integration.config.mts",
+    "test:e2e": "tsx scripts/database-preflight.ts test && playwright test",
     "test:watch": "vitest",
     "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:deploy": "prisma migrate deploy",
+    "db:preflight": "tsx scripts/database-preflight.ts",
+    "db:migrate": "tsx scripts/database-preflight.ts migrate-dev && prisma migrate dev",
+    "db:deploy": "tsx scripts/database-preflight.ts migrate-deploy && prisma migrate deploy",
     "admin:bootstrap": "tsx scripts/bootstrap-admin.ts",
     "statistics:reconcile": "tsx scripts/reconcile-statistics.ts",
     "env:check": "tsx scripts/validate-env.ts",
@@ -23,7 +24,8 @@
     "storage:migrate": "tsx scripts/migrate-object-storage.ts",
     "alerts:check": "tsx scripts/check-operational-alerts.ts",
     "regions:import": "tsx scripts/import-indonesia-regions.ts",
-    "benchmark:discovery": "tsx scripts/benchmark-discovery.ts"
+    "benchmark:discovery": "tsx scripts/benchmark-discovery.ts",
+    "benchmark:discovery:phase17": "tsx scripts/benchmark-discovery-phase17.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1149.0",
