@@ -1,12 +1,5 @@
 import { expect, test } from "@playwright/test";
-
-async function login(page: import("@playwright/test").Page) {
-  await page.goto("/login");
-  await page.getByLabel("Email").fill("e2e-admin@ligagoal.test");
-  await page.getByLabel("Kata sandi").fill("E2E-password-123!");
-  await page.getByRole("button", { name: "Masuk ke dashboard" }).click();
-  await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
-}
+import { loginAsE2EAdmin as login } from "./helpers";
 
 test.describe("Phase 6 player operations", () => {
   test.beforeEach(async ({ page }) => {

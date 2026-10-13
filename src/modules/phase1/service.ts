@@ -7,7 +7,7 @@ import {
   type getApiActor,
 } from "@/lib/auth/api";
 import type { PermissionKey } from "@/lib/auth/permissions";
-import { withMembershipDatabase, withTenantDatabase } from "@/lib/tenant-db";
+import { withMembershipDatabase, withPlatformDatabase, withTenantDatabase } from "@/lib/tenant-db";
 import { schemas, type ResourceName } from "./validation";
 import {
   commitQuotaInCurrentTransaction,
@@ -323,7 +323,29 @@ export async function listOrganizations(actor: Actor, query: Query) {
       ? {}
       : { memberships: { some: { userId: actor.id, isActive: true } } }),
   };
-  const page = () =>
+  const organizationInclude = {
+    owner: { select: { id: true, name: true, email: true } },
+    _count: { select: { memberships: true, competitions: true, clubs: true } },
+  } satisfies Prisma.OrganizationInclude;
+  const platformPage = () =>
+    Promise.all([
+      db.organization.findMany({
+        where,
+        include: organizationInclude,
+        orderBy: { createdAt: "desc" },
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize,
+      }),
+      db.organization.count({ where }),
+    ]);
+  if (actor.isPlatformAdmin) {
+    const [data, total] = await withPlatformDatabase(rootDb, platformPage);
+    return {
+      ...pageResult(data.map((organization) => ({ ...organization, _canUpdate: true })), total, query),
+      capabilities: { create: true },
+    };
+  }
+  const membershipPage = () =>
     Promise.all([
       db.organization.findMany({
         where,
@@ -334,34 +356,25 @@ export async function listOrganizations(actor: Actor, query: Query) {
       }),
       db.organization.count({ where }),
     ]);
-  const [references, total] = actor.isPlatformAdmin
-    ? await page()
-    : await withMembershipDatabase(actor.id, page);
-  const data = await Promise.all(
-    references.map(({ id }) =>
-      withTenantDatabase(rootDb, id, () =>
+  const [references, total] = await withMembershipDatabase(actor.id, membershipPage);
+  const data = [];
+  for (const { id } of references) {
+    data.push(
+      await withTenantDatabase(rootDb, id, () =>
         db.organization.findUniqueOrThrow({
           where: { id },
-          include: {
-            owner: { select: { id: true, name: true, email: true } },
-            _count: {
-              select: { memberships: true, competitions: true, clubs: true },
-            },
-          },
+          include: organizationInclude,
         }),
       ),
-    ),
-  );
-  const visible = await Promise.all(
-    data.map(async (organization) => ({
+    );
+  }
+  const visible = [];
+  for (const organization of data) {
+    visible.push({
       ...organization,
-      _canUpdate:
-        actor.isPlatformAdmin ||
-        (await capabilities(actor, organization.id, ["organization.update"]))[
-          "organization.update"
-        ],
-    })),
-  );
+      _canUpdate: (await capabilities(actor, organization.id, ["organization.update"]))["organization.update"],
+    });
+  }
   return {
     ...pageResult(visible, total, query),
     capabilities: { create: actor.isPlatformAdmin },

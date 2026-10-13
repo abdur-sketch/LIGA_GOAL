@@ -5,6 +5,7 @@ import { actionArticle, createArticle, createNotification, listAdminArticles, li
 
 const suffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 let organizationId = ""; let otherOrganizationId = ""; let actorId = ""; let competitionId = ""; let minorId = "";
+const minorName = `Private Minor ${suffix}`;
 const actor = () => ({ id: actorId, isActive: true, isPlatformAdmin: false, deletedAt: null });
 
 describe.sequential("Phase 7 portal security and publishing", () => {
@@ -18,7 +19,7 @@ describe.sequential("Phase 7 portal security and publishing", () => {
     const competition = await db.competition.create({ data: { organizationId, name: "Public League", slug: `public-league-${suffix}`, format: "SINGLE_ROUND_ROBIN", status: "ONGOING" } }); competitionId = competition.id;
     await db.publicOrganizerProfile.create({ data: { organizationId, publicSlug: organization.slug, displayName: organization.name, status: "PUBLISHED", publishedAt: new Date() } });
     await db.competitionPublication.create({ data: { organizationId, competitionId, publicSlug: competition.slug, status: "PUBLISHED", searchText: competition.name.toLowerCase(), publishedAt: new Date() } });
-    const minor = await db.player.create({ data: { organizationId, fullName: "Private Minor", dateOfBirth: new Date("2012-01-01"), status: "ACTIVE" } }); minorId = minor.id;
+    const minor = await db.player.create({ data: { organizationId, fullName: minorName, dateOfBirth: new Date("2012-01-01"), status: "ACTIVE" } }); minorId = minor.id;
     await db.player.create({ data: { organizationId, fullName: "Public Adult", dateOfBirth: new Date("1990-01-01"), status: "ACTIVE" } });
   });
 
@@ -31,9 +32,9 @@ describe.sequential("Phase 7 portal security and publishing", () => {
   });
 
   it("protects minors unless approved parental consent exists", async () => {
-    expect((await listPublicPlayers()).some((player) => player.id === minorId)).toBe(false);
+    expect((await listPublicPlayers(minorName)).some((player) => player.id === minorId)).toBe(false);
     await db.publicationConsent.create({ data: { organizationId, playerId: minorId, legalBasis: "guardian consent", isMinor: true, guardianConfirmed: true, evidenceHash: "a".repeat(64), grantedById: actorId } });
-    expect((await listPublicPlayers()).some((player) => player.id === minorId)).toBe(true);
+    expect((await listPublicPlayers(minorName)).some((player) => player.id === minorId)).toBe(true);
   });
 
   it("prevents cross-tenant CMS access", async () => {

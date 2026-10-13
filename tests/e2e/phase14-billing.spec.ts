@@ -1,12 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
-
-async function login(page: Page) {
-  await page.goto("/login");
-  await page.getByLabel("Email").fill("e2e-admin@ligagoal.test");
-  await page.getByLabel("Kata sandi").fill("E2E-password-123!");
-  await page.getByRole("button", { name: "Masuk ke dashboard" }).click();
-  await expect(page).toHaveURL(/\/dashboard/);
-}
+import { expect, test } from "@playwright/test";
+import { loginAsE2EAdmin as login } from "./helpers";
 
 test("organizer can inspect the catalog and authoritative usage without live payment", async ({ page }) => {
   await login(page);

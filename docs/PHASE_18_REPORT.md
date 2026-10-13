@@ -1,14 +1,14 @@
 # LIGA GOAL — Phase 18 Report
 
-- Tanggal: 13 Oktober 2026 (Asia/Jakarta)
+- Tanggal: 13–14 Oktober 2026 (Asia/Jakarta)
 - Execution: local audit and staging preparation only
 Production: **NO-GO**
 
 ## Baseline
 
-- Branch `main`; HEAD dan `origin/main` tetap `4a7d06e69934d4eee635a35cf8885f81a9826ec7`.
-- Seluruh perubahan Phase 12–17 yang belum di-commit dipertahankan.
-- Worktree awal Phase 18 mengandung perubahan Phase 17 yang sah; tidak ada reset, clean, checkout paksa, commit, push, atau deploy.
+- Baseline closure lokal dimulai dari branch `main`; HEAD dan `origin/main` `47a3f5909f7dde6c8e5a119c59aa6fdcd1a105cb`.
+- Seluruh source dan perubahan Phase 12–18 yang sudah ada dipertahankan; tidak ada reset, clean, atau checkout paksa.
+- Perubahan closure tanggal 14 Oktober tetap belum di-commit dan belum di-push.
 - 29 direktori migration terdeteksi. Fresh deploy pada `liga_goal_phase18_fresh_20261013` menghasilkan 29/29 PASS.
 - Baseline checkpoint mencakup 429 tracked/untracked non-ignored file di `/tmp/liga-goal-phase18-checkpoint-20261013`. Final checkpoint mencakup 438 file di `/tmp/liga-goal-phase18-final-checkpoint-20261013`. Pada keduanya jumlah entry arsip cocok, tar terbaca, SHA-256 dan mode 0600 tersedia. `.env`, `.git`, dependency, serta build output tidak masuk.
 
@@ -28,8 +28,8 @@ Production: **NO-GO**
 | Pemeriksaan | Hasil |
 |---|---|
 | TypeScript / ESLint | PASS |
-| Unit | 65/65 PASS |
-| Integration + full competition UAT | 81 PASS, 3 SKIP eksplisit |
+| Unit | 74/74 PASS |
+| Integration + full competition UAT | 85/85 PASS, 0 SKIP dengan seluruh flag opt-in dan emulator S3 aktif |
 | E2E desktop/mobile dengan runtime `NOBYPASSRLS` | 50/50 PASS |
 | Fresh migration | 29/29 PASS |
 | Schema drift (fresh DB vs Prisma datamodel) | No difference detected |
@@ -57,9 +57,12 @@ Satu integration run awal gagal akibat fixture transfer memakai `Date.now()` pad
 
 - Tidak ditemukan P0 pada audit lokal.
 - `npm audit --omit=dev`: 0 vulnerability. Full audit: lima high pada toolchain ESLint melalui `braces`/`micromatch`/`fast-glob`; saran otomatis meminta downgrade mayor dan tidak diterapkan.
-- Alert check menemukan backlog realtime sintetis dan delivery alert `blocked` karena provider belum dikonfigurasi. Ini blocker staging, bukan defect yang disembunyikan.
-- Dua test object-storage tetap skip karena emulator S3 tidak tersedia; restore database tidak membuktikan restore object.
-- External payment/email/storage/monitoring/DNS belum diintegrasikan atau diuji.
+- Alert check menemukan backlog realtime sintetis dan delivery alert `blocked` karena provider eksternal belum dikonfigurasi. Adapter authenticated delivery, retry 5xx/429, serta stop-on-accept kini memiliki unit coverage.
+- Dua test object-storage telah dijalankan pada emulator S3-compatible dan lulus, termasuk private/public/quarantine, isolasi tenant, checksum, delete, serta restore. Restore pada provider staging nyata tetap wajib.
+- Adapter ClamAV memiliki coverage protokol INSTREAM untuk clean, FOUND, dan invalid response. Pengujian menemukan dan memperbaiki terminator NUL yang sebelumnya ikut masuk ke nama signature. Binary/service ClamAV nyata tetap wajib di staging.
+- Concurrent match operator test kini self-contained dan lulus saat aplikasi memakai role runtime `NOBYPASSRLS`; tidak lagi bergantung pada fixture ID tetap.
+- E2E fixture sekarang memilih tenant `e2e-liga-goal` secara eksplisit sehingga 50/50 desktop/mobile dapat diulang pada database yang telah dipakai. Listing 100 organisasi platform juga dipindahkan dari 100 transaksi paralel menjadi satu platform-scoped transaction untuk mencegah P2028.
+- External payment/email/storage/monitoring/DNS belum diintegrasikan atau diuji pada provider nyata.
 - Audit immutable/WORM, DPA/data residency, privacy/legal approval, on-call, SLO/RPO/RTO, dan production-like staging masih memerlukan keputusan pemilik.
 
 ## Release conclusion
@@ -75,4 +78,4 @@ Satu integration run awal gagal akibat fixture transfer memakai `Date.now()` pad
 - Fixture tanggal Phase 6 dibuat deterministik.
 - Sembilan dokumen Phase 18.
 
-Gunakan `git status --short` sebagai inventaris lengkap Phase 12–18. Semua perubahan tetap **uncommitted**; tidak ada push atau deployment.
+Gunakan `git status --short` sebagai inventaris closure lokal terbaru. Perubahan tanggal 14 Oktober tetap **uncommitted**; tidak ada push atau deployment cloud.

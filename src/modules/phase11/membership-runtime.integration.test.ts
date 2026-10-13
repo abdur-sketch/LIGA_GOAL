@@ -99,5 +99,15 @@ describe.skipIf(!enabled)(
       });
       expect(result.data.some((item) => item.id === organizationB)).toBe(false);
     });
+
+    it("lists platform organizations in one audited platform scope", async () => {
+      const result = await listOrganizations(
+        { id: userId, isActive: true, isPlatformAdmin: true, deletedAt: null },
+        { search: suffix, page: 1, pageSize: 20 },
+      );
+      expect(result.meta.total).toBe(2);
+      expect(result.data.map((item) => item.id).sort()).toEqual([organizationA, organizationB].sort());
+      expect(result.data.every((item) => item._canUpdate)).toBe(true);
+    });
   },
 );

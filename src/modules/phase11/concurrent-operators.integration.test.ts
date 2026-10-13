@@ -9,18 +9,24 @@ const enabled = process.env.PHASE11_CONCURRENT_WRITE_TEST === "1" && ownerUrl;
 const owner = ownerUrl
   ? new PrismaClient({ datasources: { db: { url: ownerUrl } } })
   : null;
-const matchId = "phase11-load-050";
 const suffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 let organizationId = "";
 let actorId = "";
+let matchId = "";
+let competitionId = "";
+let seasonId = "";
+let stageId = "";
+let homeTeamId = "";
+let awayTeamId = "";
+let homeClubId = "";
+let awayClubId = "";
 
 describe.skipIf(!enabled)("Phase 11 concurrent match operators", () => {
   beforeAll(async () => {
-    const match = await owner!.match.update({
-      where: { id: matchId },
-      data: { status: "LIVE_FIRST_HALF", version: 1 },
+    const organization = await owner!.organization.create({
+      data: { name: "Concurrent Operator Tenant", slug: `concurrent-${suffix}`, status: "ACTIVE" },
     });
-    organizationId = match.organizationId;
+    organizationId = organization.id;
     actorId = (
       await owner!.user.create({
         data: {
@@ -31,6 +37,35 @@ describe.skipIf(!enabled)("Phase 11 concurrent match operators", () => {
         },
       })
     ).id;
+    const competition = await owner!.competition.create({
+      data: { organizationId, name: "Concurrent Operator League", slug: `concurrent-league-${suffix}`, format: "SINGLE_ROUND_ROBIN", status: "ONGOING" },
+    });
+    competitionId = competition.id;
+    const season = await owner!.season.create({
+      data: { competitionId, name: `Concurrent 2026 ${suffix}`, startsAt: new Date("2026-01-01"), endsAt: new Date("2026-12-31"), status: "ACTIVE", isActive: true },
+    });
+    seasonId = season.id;
+    const stage = await owner!.stage.create({
+      data: { organizationId, seasonId, name: "Concurrent Stage", sortOrder: 1, type: "ROUND_ROBIN", format: "SINGLE_ROUND_ROBIN" },
+    });
+    stageId = stage.id;
+    const [homeClub, awayClub] = await Promise.all([
+      owner!.club.create({ data: { organizationId, name: "Concurrent Home", shortName: "CHM", slug: `concurrent-home-${suffix}` } }),
+      owner!.club.create({ data: { organizationId, name: "Concurrent Away", shortName: "CAW", slug: `concurrent-away-${suffix}` } }),
+    ]);
+    homeClubId = homeClub.id;
+    awayClubId = awayClub.id;
+    const [homeTeam, awayTeam] = await Promise.all([
+      owner!.team.create({ data: { competitionId, clubId: homeClubId, name: homeClub.name } }),
+      owner!.team.create({ data: { competitionId, clubId: awayClubId, name: awayClub.name } }),
+    ]);
+    homeTeamId = homeTeam.id;
+    awayTeamId = awayTeam.id;
+    matchId = (
+      await owner!.match.create({
+        data: { organizationId, competitionId, seasonId, stageId, homeTeamId, awayTeamId, matchNumber: 1, kickoffAt: new Date("2026-10-13T12:00:00Z"), status: "LIVE_FIRST_HALF", version: 1, publishedAt: new Date() },
+      })
+    ).id;
   });
 
   afterAll(async () => {
@@ -38,6 +73,13 @@ describe.skipIf(!enabled)("Phase 11 concurrent match operators", () => {
     await owner!.auditLog.deleteMany({ where: { actorId } });
     await owner!.matchRealtimeOutbox.deleteMany({ where: { matchId } });
     await owner!.matchEvent.deleteMany({ where: { matchId } });
+    await owner!.match.delete({ where: { id: matchId } });
+    await owner!.team.deleteMany({ where: { id: { in: [homeTeamId, awayTeamId] } } });
+    await owner!.club.deleteMany({ where: { id: { in: [homeClubId, awayClubId] } } });
+    await owner!.stage.delete({ where: { id: stageId } });
+    await owner!.season.delete({ where: { id: seasonId } });
+    await owner!.competition.delete({ where: { id: competitionId } });
+    await owner!.organization.delete({ where: { id: organizationId } });
     await owner!.user.delete({ where: { id: actorId } });
     await owner!.$disconnect();
   });

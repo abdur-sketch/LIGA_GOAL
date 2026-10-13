@@ -5,8 +5,8 @@ Phase 17 memenuhi local technical scope, tetapi production tetap **NO-GO**.
 ## P0 sebelum staging pilot
 
 1. Bangun staging terisolasi dengan runtime DB role NOBYPASSRLS, managed secret, TLS, backup/PITR, dan restore drill.
-2. Jalankan full 25-step competition UAT serta concurrent operator fixture pada database disposable.
-3. Jalankan S3-compatible emulator tests lalu staging object storage restore/malware workflow.
+2. **Local complete:** full 25-step competition UAT dan concurrent operator fixture lulus. Ulangi bukti yang sama pada database staging disposable.
+3. **Emulator complete:** S3-compatible object backup/restore dan signature quarantine lulus. Jalankan ulang pada object storage staging dan service ClamAV nyata.
 4. Security review independen: platform grant escalation, public insert abuse, IDOR, CSRF/session, audit tampering, webhook replay, dan log redaction.
 5. Tetapkan appeal SLA, segregation of duties, dan notification sandbox; UI review dasar sudah tersedia.
 6. Definisikan legal retention/deletion untuk report contact, evidence verification, notes, appeals, dan audit.
@@ -32,3 +32,10 @@ Phase 17 memenuhi local technical scope, tetapi production tetap **NO-GO**.
 - Infrastructure owner: deployment topology dan scaling thresholds.
 
 Tidak ada blocker di atas yang boleh dianggap terselesaikan hanya dari hasil benchmark lokal.
+
+## Closure lokal 14 Oktober 2026
+
+- 74 unit, 85 integration tanpa skip, 50 E2E desktop/mobile, TypeScript, ESLint, dan production build lulus.
+- Environment staging/production sekarang fail-closed bila release identity, metrics, email sandbox, alert webhook, S3-compatible storage, atau ClamAV belum dikonfigurasi.
+- Liveness endpoint mengekspos environment, version, dan commit pendek tanpa secret.
+- Provider/account/budget, TLS/DNS publik, managed PostgreSQL/PITR, immutable audit sink, on-call, legal/privacy, dan independent security review tetap memerlukan keputusan serta kredensial pemilik.
