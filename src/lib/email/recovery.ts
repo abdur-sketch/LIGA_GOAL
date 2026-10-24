@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { log } from "@/lib/observability/logger";
+import { BRAND } from "@/lib/brand";
 
 type FetchLike = typeof fetch;
 function emailHash(email: string) { return createHash("sha256").update(email.trim().toLowerCase()).digest("hex").slice(0, 16); }
@@ -7,7 +8,7 @@ function emailHash(email: string) { return createHash("sha256").update(email.tri
 export function recoveryEmailPayload(email: string, token: string) {
   const base = new URL(process.env.NEXTAUTH_URL || "http://127.0.0.1:3000");
   const resetUrl = new URL("/login", base); resetUrl.searchParams.set("recoveryToken", token);
-  return { to: email, template: "liga-goal-password-recovery-v1", locale: "id", variables: { resetUrl: resetUrl.toString(), expiresMinutes: 30 } };
+  return { to: email, template: "liga-goal-password-recovery-v1", locale: "id", variables: { brandName: BRAND.name, tagline: BRAND.tagline, resetUrl: resetUrl.toString(), expiresMinutes: 30 } };
 }
 
 export async function sendRecoveryEmail(email: string, token: string, fetcher: FetchLike = fetch) {

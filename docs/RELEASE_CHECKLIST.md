@@ -1,6 +1,6 @@
 # Release Checklist
 
-PROJECT: LIGA GOAL
+PROJECT: PORTAL LOMBA
 PHASE: 9
 
 Release is blocked unless every mandatory item is checked with linked evidence.

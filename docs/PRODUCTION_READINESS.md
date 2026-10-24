@@ -1,6 +1,6 @@
-# LIGA GOAL Production Readiness
+# PORTAL LOMBA Production Readiness
 
-PROJECT: LIGA GOAL
+PROJECT: PORTAL LOMBA
 
 PHASE: 11
 

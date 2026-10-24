@@ -1,6 +1,6 @@
 # Phase 1 report
 
-PROJECT: LIGA GOAL
+PROJECT: PORTAL LOMBA
 PHASE: 1 — Organization, Competition & Club Management
 BASELINE: Phase 0 working tree based on commit `de0a4f6`
 

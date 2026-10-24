@@ -4,7 +4,7 @@ import { loginAsE2EAdmin as login } from "./helpers";
 test.describe("Phase 7 public portal", () => {
   test("renders real public competition and match data without login", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: /Semua Liga/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Semua Kompetisi/i })).toBeVisible();
     await expect(page.getByText("E2E Phase 3").first()).toBeVisible();
     await page.goto("/pertandingan");
     await expect(page.getByRole("heading", { name: "Semua pertandingan" })).toBeVisible();

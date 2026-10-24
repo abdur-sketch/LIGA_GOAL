@@ -1,6 +1,6 @@
 # Phase 11 Capacity Test Report
 
-PROJECT: LIGA GOAL
+PROJECT: PORTAL LOMBA
 DATE: 2026-10-12
 STATUS: **PASS (local target)**
 

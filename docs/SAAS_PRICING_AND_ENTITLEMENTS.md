@@ -1,6 +1,6 @@
-# LIGA GOAL — SaaS Pricing and Entitlements
+# PORTAL LOMBA — SaaS Pricing and Entitlements
 
-PROJECT: LIGA GOAL
+PROJECT: PORTAL LOMBA
 PHASE: 12
 DATE: 2026-10-12
 STATUS: Commercial hypothesis and architecture only; no live payment

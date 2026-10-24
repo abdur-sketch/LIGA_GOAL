@@ -1,6 +1,6 @@
-# LIGA GOAL — Self-Service Organizer Onboarding Plan
+# PORTAL LOMBA — Self-Service Organizer Onboarding Plan
 
-PROJECT: LIGA GOAL
+PROJECT: PORTAL LOMBA
 PHASE: 12
 DATE: 2026-10-12
 STATUS: Design only; self-service is not enabled

@@ -1,4 +1,4 @@
-# LIGA GOAL — Phase 16 Report
+# PORTAL LOMBA — Phase 16 Report
 
 Tanggal verifikasi lokal: 13 Oktober 2026 (Asia/Jakarta)
 Baseline: Phase 0–15

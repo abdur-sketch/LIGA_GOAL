@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { BRAND } from "@/lib/brand";
 import { log } from "@/lib/observability/logger";
 
 function localUrl(path: string, token: string) {
@@ -8,11 +9,11 @@ function localUrl(path: string, token: string) {
 }
 
 export function verificationEmailPayload(email: string, token: string) {
-  return { to: email, template: "liga-goal-email-verification-v1", locale: "id", variables: { verificationUrl: localUrl("/verifikasi-email", token), expiresMinutes: 30 } };
+  return { to: email, template: "liga-goal-email-verification-v1", locale: "id", variables: { brandName: BRAND.name, tagline: BRAND.tagline, verificationUrl: localUrl("/verifikasi-email", token), expiresMinutes: 30 } };
 }
 
 export function invitationEmailPayload(email: string, token: string) {
-  return { to: email, template: "liga-goal-organization-invitation-v1", locale: "id", variables: { invitationUrl: localUrl("/undangan", token), expiresDays: 7 } };
+  return { to: email, template: "liga-goal-organization-invitation-v1", locale: "id", variables: { brandName: BRAND.name, tagline: BRAND.tagline, invitationUrl: localUrl("/undangan", token), expiresDays: 7 } };
 }
 
 export async function deliverSandboxEmail(kind: "verification" | "invitation", email: string, token: string) {

@@ -1,6 +1,6 @@
 # Deployment and Rollback Runbook
 
-PROJECT: LIGA GOAL
+PROJECT: PORTAL LOMBA
 PHASE: 9
 CURRENT STATUS: deployment forbidden / **NO-GO**
 

@@ -1,6 +1,6 @@
 # UAT Report
 
-PROJECT: LIGA GOAL
+PROJECT: PORTAL LOMBA
 PHASE: 9
 DATE: 2026-10-11
 ENVIRONMENT: isolated local PostgreSQL / LocalStack, synthetic data only

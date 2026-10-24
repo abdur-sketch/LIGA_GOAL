@@ -1,8 +1,8 @@
-# LIGA GOAL — Architecture Decision Record
+# PORTAL LOMBA — Architecture Decision Record
 
 ## Phase 0 baseline
 
-LIGA GOAL uses a modular monolith for the initial product. Next.js owns the web UI, server endpoints, and application services; PostgreSQL is the system of record. This keeps transactions and authorization boundaries simple while module contracts remain separable for future extraction.
+PORTAL LOMBA uses a modular monolith for the initial product. Next.js owns the web UI, server endpoints, and application services; PostgreSQL is the system of record. This keeps transactions and authorization boundaries simple while module contracts remain separable for future extraction.
 
 ```text
 Browser → Next.js (public pages / protected dashboard / API)

@@ -1,6 +1,6 @@
 # RLS Coverage Matrix
 
-PROJECT: LIGA GOAL
+PROJECT: PORTAL LOMBA
 PHASE: 11
 DATE: 2026-10-12
 STATUS: **PASS for local technical scope**

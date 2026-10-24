@@ -12,9 +12,9 @@ const first = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value[0] : value;
 
 export const metadata: Metadata = {
-  title: "Penyelenggara Sepak Bola Indonesia",
+  title: "Penyelenggara Kompetisi Indonesia",
   description:
-    "Profil publik penyelenggara dan kompetisi sepak bola yang telah melalui moderasi LIGA GOAL.",
+    "Profil publik penyelenggara dan kompetisi yang telah melalui moderasi PORTAL LOMBA.",
   alternates: { canonical: "/penyelenggara" },
 };
 

@@ -1,6 +1,6 @@
-# LIGA GOAL Security Audit
+# PORTAL LOMBA Security Audit
 
-PROJECT: LIGA GOAL
+PROJECT: PORTAL LOMBA
 PHASE: 9
 DATE: 2026-10-11
 REFERENCE: OWASP ASVS control families (authentication, session, access control, validation, files, logging)

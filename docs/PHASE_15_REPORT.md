@@ -1,4 +1,4 @@
-# LIGA GOAL — Phase 15 Report
+# PORTAL LOMBA — Phase 15 Report
 
 Date: 12 October 2026
 Execution: local + local mock payment only

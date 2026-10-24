@@ -1,6 +1,6 @@
 # Object Storage Restore Report
 
-PROJECT: LIGA GOAL
+PROJECT: PORTAL LOMBA
 PHASE: 10
 DATE: 2026-10-11
 ENVIRONMENT: LocalStack S3 emulator, synthetic objects only

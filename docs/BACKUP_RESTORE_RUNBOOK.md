@@ -1,6 +1,6 @@
 # Backup and Restore Runbook
 
-PROJECT: LIGA GOAL
+PROJECT: PORTAL LOMBA
 PHASE: 11
 
 ## Targets

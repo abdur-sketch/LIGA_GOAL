@@ -17,7 +17,7 @@ const stagingEnvironment = {
   LIGA_GOAL_ENVIRONMENT: "staging",
   DATABASE_NAME_ALLOWLIST: "liga_goal_staging",
   DATABASE_HOST_ALLOWLIST: "staging-db.internal",
-  NEXTAUTH_URL: "https://staging.liga-goal.example",
+  NEXTAUTH_URL: "https://staging.portal-lomba.example",
   APP_VERSION: "0.1.0-rc.1",
   APP_COMMIT_SHA: "47a3f5909f7dde6c8e5a119c59aa6fdcd1a105cb",
   METRICS_TOKEN: "metrics-token-that-is-at-least-32-characters",

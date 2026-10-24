@@ -1,6 +1,6 @@
-# LIGA GOAL Phase 10 Report
+# PORTAL LOMBA Phase 10 Report
 
-PROJECT: LIGA GOAL
+PROJECT: PORTAL LOMBA
 PHASE: 10
 DATE: 2026-10-11
 EXECUTION: local / isolated only

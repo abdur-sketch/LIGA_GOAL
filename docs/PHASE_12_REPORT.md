@@ -1,6 +1,6 @@
-# LIGA GOAL Phase 12 Report
+# PORTAL LOMBA Phase 12 Report
 
-PROJECT: LIGA GOAL
+PROJECT: PORTAL LOMBA
 PHASE: 12 — National SaaS Architecture & Commercial Readiness
 DATE: 2026-10-12
 EXECUTION: Local audit and planning only

@@ -1,4 +1,4 @@
-# LIGA GOAL — Phase 18 Report
+# PORTAL LOMBA — Phase 18 Report
 
 - Tanggal: 13–14 Oktober 2026 (Asia/Jakarta)
 - Execution: local audit and staging preparation only

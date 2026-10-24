@@ -1,5 +1,5 @@
 {
-  "name": "liga-goal",
+  "name": "portal-lomba",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -34,13 +34,13 @@
     "clsx": "^2.1.1",
     "exceljs": "^4.4.0",
     "lucide-react": "^0.468.0",
-    "next": "16.4.0",
+    "next": "16.4.3",
     "next-auth": "4.24.15",
     "pdf-lib": "^1.17.1",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "tailwind-merge": "^2.6.0",
-    "zod": "^3.24.1"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1",
@@ -59,7 +59,7 @@
     "tailwindcss": "^4.1.17",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
-    "vitest": "^4.0.6"
+    "vitest": "4.1.12"
   },
   "overrides": {
     "exceljs": {

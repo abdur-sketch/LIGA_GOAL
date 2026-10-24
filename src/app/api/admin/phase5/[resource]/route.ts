@@ -65,10 +65,10 @@ async function GETHandler(request: NextRequest, context: Context) {
           page.drawText([row.position, row.club.name.slice(0, 24), row.played, row.won, row.drawn, row.lost, row.goalsFor, row.goalsAgainst, row.goalDifference, row.points].join("     "), { x: 42, y, size: 9, font });
           y -= 20;
         }
-        return new NextResponse(Buffer.from(await pdf.save()), { headers: { "Content-Type": "application/pdf", "Content-Disposition": "attachment; filename=liga-goal-standings.pdf" } });
+        return new NextResponse(Buffer.from(await pdf.save()), { headers: { "Content-Type": "application/pdf", "Content-Disposition": "attachment; filename=portal-lomba-standings.pdf" } });
       }
       const workbook = new ExcelJS.Workbook();
-      workbook.creator = "LIGA GOAL";
+      workbook.creator = "PORTAL LOMBA";
       const sheet = workbook.addWorksheet("Standings");
       sheet.columns = [
         { header: "Position", key: "position", width: 10 }, { header: "Club", key: "club", width: 28 },
@@ -90,7 +90,7 @@ async function GETHandler(request: NextRequest, context: Context) {
       result.snapshot.playerStatistics.forEach((row) => players.addRow({ ...row, player: row.player.displayName || row.player.fullName, club: row.club.name }));
       players.getRow(1).font = { bold: true };
       const buffer = await workbook.xlsx.writeBuffer();
-      return new NextResponse(Buffer.from(buffer), { headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": "attachment; filename=liga-goal-statistics.xlsx" } });
+      return new NextResponse(Buffer.from(buffer), { headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": "attachment; filename=portal-lomba-statistics.xlsx" } });
     }
     if (resource === "adjustments") return NextResponse.json({ data: await listPointAdjustments(actor, scope(request)) });
     throw new ApiError(404, "Endpoint tidak ditemukan.");

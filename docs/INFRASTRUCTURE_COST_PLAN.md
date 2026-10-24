@@ -1,6 +1,6 @@
-# LIGA GOAL — Infrastructure and Cost Plan
+# PORTAL LOMBA — Infrastructure and Cost Plan
 
-PROJECT: LIGA GOAL
+PROJECT: PORTAL LOMBA
 PHASE: 12
 DATE: 2026-10-12
 STATUS: Planning estimate only; no service purchased or billing enabled

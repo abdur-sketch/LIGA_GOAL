@@ -54,7 +54,7 @@ export const competitionRulesSchema = z.object({
   age: z.object({ min: z.number().int().min(0).max(99).optional(), max: z.number().int().min(1).max(99).optional(), cutoffDate: z.string().date().optional() }).optional(),
   registrationWindow: z.object({ start: z.string().datetime().or(z.string().date()), end: z.string().datetime().or(z.string().date()) }).optional(),
   squadLimit: z.number().int().min(1).max(200).optional(), uniqueJersey: z.boolean().default(false), jerseyRequired: z.boolean().default(false),
-  requiredDocuments: z.array(z.enum(["PHOTO", "IDENTITY", "AGE_PROOF", "PARENTAL_CONSENT", "ADDITIONAL"])).default([]),
+  requiredDocuments: z.array(z.enum(["PHOTO", "IDENTITY", "AGE_PROOF", "PARENTAL_CONSENT", "ADDITIONAL"])).max(5).default([]),
 }).default({ uniqueJersey: false, jerseyRequired: false, requiredDocuments: [] });
 
 export type CompetitionRules = z.infer<typeof competitionRulesSchema>;

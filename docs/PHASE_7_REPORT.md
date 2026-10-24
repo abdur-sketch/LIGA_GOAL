@@ -1,4 +1,4 @@
-# LIGA GOAL Phase 7 — Implementation Report
+# PORTAL LOMBA Phase 7 — Implementation Report
 
 Tanggal verifikasi: 10 Oktober 2026 (Asia/Jakarta)
 

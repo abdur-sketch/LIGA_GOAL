@@ -1,6 +1,6 @@
 # External Provider Checklist
 
-PROJECT: LIGA GOAL
+PROJECT: PORTAL LOMBA
 PHASE: 10
 All providers: **BLOCKED — OWNER ACTION REQUIRED**. No account, billing, production secret, or external data transfer was created.
 

@@ -1,4 +1,4 @@
-# LIGA GOAL — Phase 14 Report
+# PORTAL LOMBA — Phase 14 Report
 
 Date: 12 October 2026
 Execution: local only

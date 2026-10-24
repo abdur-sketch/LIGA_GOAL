@@ -1,6 +1,6 @@
-# LIGA GOAL — National SaaS Architecture
+# PORTAL LOMBA — National SaaS Architecture
 
-PROJECT: LIGA GOAL
+PROJECT: PORTAL LOMBA
 PHASE: 12
 DATE: 2026-10-12
 STATUS: Architecture plan only; no schema, provider, billing, or production change executed

@@ -159,9 +159,9 @@ export default async function globalSetup() {
     }
     const organization = await db.organization.upsert({
       where: { slug: "e2e-liga-goal" },
-      update: { status: "ACTIVE", deletedAt: null, ownerId: user.id },
+      update: { name: "E2E Portal Lomba", status: "ACTIVE", deletedAt: null, ownerId: user.id },
       create: {
-        name: "E2E Liga Goal",
+        name: "E2E Portal Lomba",
         slug: "e2e-liga-goal",
         status: "ACTIVE",
         ownerId: user.id,
@@ -246,8 +246,8 @@ export default async function globalSetup() {
     });
     await db.competitionPublication.upsert({
       where: { competitionId: competition.id },
-      update: { status: "PUBLISHED", provinceId: province.id, cityId: city.id, searchText: "e2e phase 3 liga goal jakarta", publishedAt: new Date(), reviewedById: user.id },
-      create: { organizationId: organization.id, competitionId: competition.id, publicSlug: competition.slug, status: "PUBLISHED", provinceId: province.id, cityId: city.id, searchText: "e2e phase 3 liga goal jakarta", publishedAt: new Date(), reviewedById: user.id },
+      update: { status: "PUBLISHED", provinceId: province.id, cityId: city.id, searchText: "e2e phase 3 portal lomba jakarta", publishedAt: new Date(), reviewedById: user.id },
+      create: { organizationId: organization.id, competitionId: competition.id, publicSlug: competition.slug, status: "PUBLISHED", provinceId: province.id, cityId: city.id, searchText: "e2e phase 3 portal lomba jakarta", publishedAt: new Date(), reviewedById: user.id },
     });
     const season = await db.season.upsert({
       where: {

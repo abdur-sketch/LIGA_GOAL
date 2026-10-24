@@ -19,9 +19,9 @@ test("platform admin can open audited subscription controls", async ({ page }) =
   await login(page);
   await page.goto("/admin/subscriptions");
   await expect(page.getByRole("heading", { name: "Organization subscriptions" })).toBeVisible();
-  const organization = page.getByRole("article").filter({ hasText: "E2E Liga Goal" });
-  await expect(organization.getByText("E2E Liga Goal", { exact: true })).toBeVisible();
-  await expect(page.getByText("tidak ada pembayaran nyata", { exact: false })).toBeVisible();
+  const organization = page.getByRole("article").filter({ hasText: "E2E Portal Lomba" });
+  await expect(organization.getByText("E2E Portal Lomba", { exact: true })).toBeVisible();
+  await expect(page.getByText("tidak ada pembayaran nyata", { exact: false }).first()).toBeVisible();
   await organization.getByText("Kelola", { exact: true }).click();
   await expect(organization.getByRole("button", { name: "Simpan kontrol" })).toBeVisible();
 });

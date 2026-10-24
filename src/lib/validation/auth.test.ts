@@ -3,12 +3,12 @@ import { loginSchema } from "./auth";
 
 describe("loginSchema", () => {
   it("normalizes a valid email", () => {
-    const result = loginSchema.parse({ email: " Admin@LigaGoal.ID ", password: "sangat-rahasia-123" });
-    expect(result.email).toBe("admin@ligagoal.id");
+    const result = loginSchema.parse({ email: " Admin@PortalLomba.ID ", password: "sangat-rahasia-123" });
+    expect(result.email).toBe("admin@portallomba.id");
   });
 
   it("rejects short passwords", () => {
-    expect(loginSchema.safeParse({ email: "admin@ligagoal.id", password: "pendek" }).success).toBe(false);
+    expect(loginSchema.safeParse({ email: "admin@portallomba.id", password: "pendek" }).success).toBe(false);
   });
 
   it("rejects malformed email addresses", () => {

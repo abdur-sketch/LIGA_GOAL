@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const name = player.displayName || player.fullName;
   return {
     title: name,
-    description: `Statistik publik ${name} di LIGA GOAL.`,
+    description: `Statistik publik ${name} di PORTAL LOMBA.`,
     alternates: { canonical: `/pemain/${id}` },
     openGraph: {
       title: name,

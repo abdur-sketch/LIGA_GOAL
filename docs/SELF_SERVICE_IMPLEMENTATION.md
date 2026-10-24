@@ -1,4 +1,4 @@
-# LIGA GOAL Phase 13 — Self-Service Implementation
+# PORTAL LOMBA Phase 13 — Self-Service Implementation
 
 Tanggal verifikasi lokal: 12 Oktober 2026. Status produksi: **NO-GO**.
 

@@ -20,7 +20,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const title = `${match.homeTeam.club.name} ${match.homeScore}–${match.awayScore} ${match.awayTeam.club.name}`;
   return {
     title,
-    description: `${match.competition.name}: status ${match.status}. Ikuti detail pertandingan resmi di LIGA GOAL.`,
+    description: `${match.competition.name}: status ${match.status}. Ikuti detail pertandingan resmi di PORTAL LOMBA.`,
     alternates: { canonical: `/pertandingan/${id}` },
     openGraph: {
       title,

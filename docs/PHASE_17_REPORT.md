@@ -1,4 +1,4 @@
-# LIGA GOAL — Phase 17 Report
+# PORTAL LOMBA — Phase 17 Report
 
 - Tanggal audit: 13 Oktober 2026 (Asia/Jakarta)
 - Execution: lokal saja

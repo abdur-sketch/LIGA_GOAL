@@ -53,7 +53,7 @@ export const stageSchema = z.object({
     "SINGLE_ELIMINATION",
     "GROUP_AND_KNOCKOUT",
   ]),
-  settings: z.record(z.unknown()).default({}),
+  settings: z.record(z.string(), z.unknown()).default({}),
 });
 export const groupSchema = z.object({
   stageId: id,

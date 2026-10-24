@@ -1,6 +1,6 @@
 # Phase report
 
-PROJECT: LIGA GOAL
+PROJECT: PORTAL LOMBA
 PHASE: 0 — Architecture, Foundation & Security
 STATUS: Implemented locally; production not approved
 BASELINE COMMIT: `de0a4f6`
@@ -25,7 +25,7 @@ Auth.js GET/POST handlers at `/api/auth/[...nextauth]`. Domain mutation endpoint
 
 ## UI changes
 
-Dark-first LIGA GOAL tokens, reusable logo/button/match card, public shell, login flow, dashboard navigation, loading/empty states, and access-denied page.
+Dark-first PORTAL LOMBA tokens, reusable logo/button/match card, public shell, login flow, dashboard navigation, loading/empty states, and access-denied page.
 
 ## Security changes
 

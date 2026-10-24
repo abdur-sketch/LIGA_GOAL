@@ -1,6 +1,6 @@
-# LIGA GOAL — National Portal Roadmap
+# PORTAL LOMBA — National Portal Roadmap
 
-PROJECT: LIGA GOAL
+PROJECT: PORTAL LOMBA
 PHASE: 12
 DATE: 2026-10-12
 STATUS: Product and architecture roadmap only

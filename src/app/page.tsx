@@ -10,6 +10,7 @@ import {
 } from "@/components/public/portal";
 import { getPublicHome } from "@/modules/phase7/service";
 import { getNationalDiscoveryHome } from "@/modules/phase16/service";
+import { BRAND } from "@/lib/brand";
 
 export const revalidate = 60;
 
@@ -32,16 +33,16 @@ export default async function Home() {
           <div className="mx-auto grid max-w-7xl gap-12 px-5 py-20 lg:grid-cols-[1.05fr_.95fr] lg:items-center lg:px-8 lg:py-28">
             <div>
               <p className="text-xs font-extrabold uppercase tracking-[.2em] text-primary">
-                Portal sepak bola Indonesia
+                Portal kompetisi Indonesia
               </p>
               <h1 className="mt-4 max-w-3xl font-display text-5xl font-extrabold leading-[1.06] tracking-[-.055em] sm:text-6xl lg:text-7xl">
-                Semua Liga,
+                Satu Portal,
                 <br />
-                <span className="text-primary">Satu Platform.</span>
+                <span className="text-primary">Semua Kompetisi.</span>
               </h1>
               <p className="mt-6 max-w-xl text-base leading-7 text-muted sm:text-lg">
-                Ikuti pertandingan, kompetisi, klasemen, statistik, dan kabar
-                sepak bola dari satu sumber data resmi.
+                Kelola dan ikuti perlombaan, pertandingan, klasemen, statistik,
+                serta pengumuman dari satu sumber data resmi.
               </p>
               <form action="/kompetisi" className="mt-8 flex max-w-xl gap-2">
                 <input
@@ -236,8 +237,8 @@ export default async function Home() {
         </section>
       </main>
       <footer className="mx-auto flex max-w-7xl flex-col gap-2 px-5 py-8 text-sm text-muted sm:flex-row sm:justify-between lg:px-8">
-        <p>© 2026 LIGA GOAL</p>
-        <p>Semua Liga, Satu Platform.</p>
+        <p>© 2026 {BRAND.name}</p>
+        <p>{BRAND.tagline}</p>
       </footer>
     </>
   );

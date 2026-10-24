@@ -48,10 +48,10 @@ test("registration and squad pages provide workflow and working exports", async 
   ).toBeVisible();
   const pdfPromise = page.waitForEvent("download");
   await page.getByRole("link", { name: "PDF" }).click();
-  expect((await pdfPromise).suggestedFilename()).toBe("liga-goal-roster.pdf");
+  expect((await pdfPromise).suggestedFilename()).toBe("portal-lomba-roster.pdf");
   const excelPromise = page.waitForEvent("download");
   await page.getByRole("link", { name: "Excel" }).click();
   expect((await excelPromise).suggestedFilename()).toBe(
-    "liga-goal-roster.xlsx",
+    "portal-lomba-roster.xlsx",
   );
 });

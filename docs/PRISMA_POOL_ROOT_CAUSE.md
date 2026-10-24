@@ -1,6 +1,6 @@
 # Prisma P2028 / Pool Root Cause
 
-PROJECT: LIGA GOAL
+PROJECT: PORTAL LOMBA
 PHASE: 11
 DATE: 2026-10-12
 STATUS: **RESOLVED for local target**

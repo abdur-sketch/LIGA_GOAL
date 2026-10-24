@@ -1,6 +1,6 @@
-# LIGA GOAL — Pilot Launch Plan
+# PORTAL LOMBA — Pilot Launch Plan
 
-PROJECT: LIGA GOAL
+PROJECT: PORTAL LOMBA
 PHASE: 12
 DATE: 2026-10-12
 STATUS: Release plan only; no deployment authorized
