@@ -141,3 +141,46 @@ All earlier uncommitted rebranding files were preserved.
 - Commit: **INCLUDED IN AUTHORIZED HANDOFF COMMIT**
 - Push: **AUTHORIZED TO `origin/main`**
 - Deployment: **NOT PERFORMED**
+
+## Follow-up CI remote — 31 Oktober 2026
+
+Commit handoff `d7198abf8148b8caecaa8cd95375711a9498ccb9` berhasil tersedia di `origin/main`, tetapi GitHub Actions run [CI #8](https://github.com/abdur-sketch/LIGA_GOAL/actions/runs/40107100962) berstatus **FAILURE / NOT STARTED**. Anotasi GitHub menyatakan job tidak dimulai karena akun terkunci akibat masalah billing. Durasi tiga detik dan tidak adanya langkah yang dieksekusi berarti hasil ini bukan kegagalan lint, test, build, ataupun aplikasi.
+
+Tindak lanjut repository yang dilakukan:
+
+- runner dipin dari `ubuntu-latest` ke `ubuntu-24.04` agar tidak terkena migrasi otomatis GitHub ke Ubuntu 26;
+- permission workflow dibuat eksplisit `contents: read`;
+- concurrency cancellation dan timeout 60 menit ditambahkan untuk membatasi konsumsi runner.
+
+Gate CI remote tetap **BLOCKED EXTERNAL** sampai pemilik akun GitHub menyelesaikan status billing dan menjalankan ulang workflow. Bukti lokal tidak menggantikan gate remote ini, dan status produksi tetap **NO-GO**.
+
+## Follow-up dependency audit — 31 Oktober 2026
+
+Audit ulang menemukan advisory baru [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249) pada `minimatch <11.0.1`. Jalur produksi berasal dari `exceljs@4.4.0` melalui `archiver@5`, sedangkan jalur development berasal dari ESLint dan TypeScript ESLint. `npm audit fix --force` tidak digunakan karena rekomendasinya menurunkan versi direct dependency secara breaking.
+
+Remediasi yang diterapkan:
+
+- override terbatas `exceljs` ke `archiver@8.0.0` dan `unzipper@0.12.5` untuk mengeluarkan dependency legacy;
+- override `minimatch@11.0.1`, versi patched yang mendukung Node 18, 20, dan 22+ serta menyediakan export CommonJS dan ESM;
+- lockfile dibangun ulang lewat instalasi bersih.
+
+Bukti kompatibilitas setelah remediasi:
+
+- `npm audit --omit=dev`: **PASS — 0 vulnerability**;
+- `npm audit`: **PASS — 0 vulnerability**;
+- ESLint dan TypeScript: **PASS**;
+- unit: **PASS 77/77**;
+- XLSX in-memory write/read round-trip: **PASS**;
+- E2E ekspor roster desktop/mobile: **PASS 4/4**;
+- production build terhadap database 29 migrasi: **PASS**, 93 page entries.
+
+## Follow-up database lokal — 31 Oktober 2026
+
+Database development utama `liga_goal` ditemukan tertinggal pada 21 dari 29 migrasi. Delapan migrasi Phase 13–17 diaudit dan tidak mengandung `DROP`, `TRUNCATE`, `DELETE`, rename, atau pengetatan `NOT NULL`. Jalur fail-closed `db:deploy` kemudian menerapkan delapan migrasi additive tersebut; status akhir **29/29, schema up to date**, dan production build terhadap database utama PASS.
+
+Percobaan dump pra-migrasi gagal karena URI Prisma memuat parameter `schema` yang tidak diterima `pg_dump`; shell saat itu tetap melanjutkan migrasi. Tidak ada backup pra-migrasi yang valid. Karena migrasi sudah selesai dan bersifat additive, dump custom-format pasca-migrasi langsung dibuat dan diverifikasi melalui `pg_restore --list`:
+
+- artifact lokal sementara: `/tmp/portal-lomba-liga-goal-post-phase17-20261031.ck5hxD`;
+- SHA-256: `c773b899d9cfcb407ed2e353e7a60aee24d501dc4711949e3d16134c2b4bbeee`.
+
+Artifact `/tmp` bukan backup durable dan dapat hilang saat restart. Kegagalan awal terjadi pada command manual; `scripts/backup.sh` yang resmi sudah menormalisasi URI backup dan memakai `set -euo pipefail`. Operator harus memakai script resmi tersebut untuk backup berikutnya.

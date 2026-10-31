@@ -2,8 +2,8 @@
 
 | Gate | Status | Evidence | To advance |
 |---|---|---|---|
-| A — Source Integrity | **PASS (local)** | HEAD/upstream recorded; 429-file verified checkpoint; `.env` ignored | Owner diff review, approved Git branch/commit/tag and remote backup |
-| B — Database Safety | **PASS (local)** | Fail-closed preflight; separate shadow; fresh 29/29; runtime NOBYPASSRLS; backup/restore PASS | Repeat with staging IAM/PITR; validate source/target/shadow fingerprints in CI |
+| A — Source Integrity | **PASS local / BLOCKED remote CI** | Commit `d7198ab` tersedia di `origin/main`; local validation PASS; GitHub Actions CI #8 tidak mulai karena account billing lock | Pemilik akun menyelesaikan billing GitHub, lalu rerun CI sampai PASS; tag/release tetap memerlukan persetujuan |
+| B — Database Safety | **PASS (local)** | Fail-closed preflight; primary local and fresh DB 29/29; runtime NOBYPASSRLS; local backup/restore evidence PASS | Repeat with staging IAM/PITR; validate source/target/shadow fingerprints in CI; use normalized pg_dump URI and fail-fast shell |
 | C — Security | **BLOCKED** | Local auth/RBAC/RLS/billing/privacy tests pass; prod dependency audit zero | S3/ClamAV, external webhooks, immutable audit, distributed limiter, formal review |
 | D — Staging Infrastructure | **BLOCKED** | Architecture/cost plan complete | Budget/provider/region approval and isolated resource provisioning |
 | E — Provider Integration | **BLOCKED** | Candidate/sandbox matrix complete | Credentials, contracts/DPA, sandbox integrations and outage/replay tests |
