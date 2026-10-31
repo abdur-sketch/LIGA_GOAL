@@ -28,6 +28,16 @@ Management tersedia di `/admin` dan self-service organizer di `/organizer`. Imag
 
 ## Quality checks
 
+Local-first CI membuat dan membersihkan database test terisolasi secara otomatis:
+
+```bash
+npm run ci:quick
+npm run ci:security
+npm run ci:local
+```
+
+Lihat [`docs/GITHUB_FREE_SETUP.md`](docs/GITHUB_FREE_SETUP.md) untuk prasyarat, model keamanan database, konfigurasi GitHub Free, dan troubleshooting billing lock.
+
 ```bash
 npm run lint
 npm run typecheck
