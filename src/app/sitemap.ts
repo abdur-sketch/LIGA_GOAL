@@ -15,7 +15,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     db.match.findMany({ where: { publishedAt: { not: null }, competition: publicCompetitionWhere }, select: { id: true, updatedAt: true }, take: 1000 }),
   ]))]);
   const [clubs, players, articles, matches] = legacy;
-  const fixed = ["", "/pertandingan", "/kompetisi", "/penyelenggara", "/klasemen", "/statistik", "/top-scorer", "/top-assist", "/klub", "/pemain", "/berita", "/privasi"].map((path) => ({ url: `${base}${path}`, lastModified: new Date() }));
+  const fixed = ["", "/kompetisi", "/agenda", "/hasil", "/peserta", "/penyelenggara", "/berita", "/pertandingan", "/klasemen", "/statistik", "/top-scorer", "/top-assist", "/klub", "/pemain", "/privasi"].map((path) => ({ url: `${base}${path}`, lastModified: new Date() }));
   return [...fixed,
     ...discovery.competitions.map((item) => ({ url: `${base}/kompetisi/${item.publicSlug}`, lastModified: item.updatedAt })),
     ...discovery.organizers.map((item) => ({ url: `${base}/penyelenggara/${item.publicSlug}`, lastModified: item.updatedAt })),

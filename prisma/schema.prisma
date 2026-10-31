@@ -199,6 +199,63 @@ enum CompetitionStatus {
   ARCHIVED
 }
 
+enum CompetitionKind {
+  FOOTBALL
+  QUIZ
+  ACADEMIC
+  ARTS
+  RELIGIOUS
+  FESTIVAL
+  ESPORTS
+  OTHER
+}
+
+enum ParticipantMode {
+  INDIVIDUAL
+  TEAM
+  BOTH
+}
+
+enum ParticipantType {
+  INDIVIDUAL
+  TEAM
+  INSTITUTION
+}
+
+enum GenericEntryStatus {
+  DRAFT
+  SUBMITTED
+  VERIFIED
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+enum ScoringMethod {
+  POINTS
+  JUDGES
+  TIME
+  KNOCKOUT
+  CUSTOM
+}
+
+enum CompetitionSessionStatus {
+  DRAFT
+  SCHEDULED
+  LIVE
+  COMPLETED
+  POSTPONED
+  CANCELLED
+}
+
+enum GenericScoreStatus {
+  DRAFT
+  SUBMITTED
+  VERIFIED
+  PUBLISHED
+  VOID
+}
+
 enum SeasonStatus {
   DRAFT
   ACTIVE
@@ -641,6 +698,7 @@ model User {
   assignedAbuseReports        AbuseReport[]                @relation("AbuseReportAssignee")
   moderationNotes             ModerationNote[]             @relation("ModerationNoteAuthor")
   reviewedModerationAppeals   ModerationAppeal[]           @relation("ModerationAppealReviewer")
+  genericScoreEntries         GenericScoreEntry[]          @relation("GenericScoreJudge")
 }
 
 model PasswordResetToken {
@@ -759,6 +817,12 @@ model Organization {
   verification            OrganizerVerification?
   abuseReports            AbuseReport[]
   moderationAppeals       ModerationAppeal[]
+  competitionParticipants CompetitionParticipant[]
+  genericEntries          GenericCompetitionEntry[]
+  competitionSessions     CompetitionSession[]
+  scoringCriteria         ScoringCriterion[]
+  genericScoreEntries     GenericScoreEntry[]
+  genericResults          GenericResult[]
 
   @@index([status, deletedAt])
   @@index([ownerId])
@@ -1511,7 +1575,7 @@ model UserPermission {
 }
 
 model Competition {
-  id                  String                   @id @default(cuid())
+  id                  String                    @id @default(cuid())
   organizationId      String
   name                String
   slug                String
@@ -1521,13 +1585,13 @@ model Competition {
   location            String?
   regulations         String?
   format              CompetitionFormat
-  status              CompetitionStatus        @default(DRAFT)
+  status              CompetitionStatus         @default(DRAFT)
   startsAt            DateTime?
   endsAt              DateTime?
-  createdAt           DateTime                 @default(now())
-  updatedAt           DateTime                 @updatedAt
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
   deletedAt           DateTime?
-  organization        Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  organization        Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   seasons             Season[]
   teams               Team[]
   rules               CompetitionRule[]
@@ -1551,28 +1615,37 @@ model Competition {
   invoiceItems        InvoiceItem[]
   publication         CompetitionPublication?
   abuseReports        AbuseReport[]
+  parentCompetitionId String?
+  parentCompetition   Competition?              @relation("CompetitionBranches", fields: [parentCompetitionId], references: [id], onDelete: Restrict)
+  branches            Competition[]             @relation("CompetitionBranches")
+  genericProfile      CompetitionProfile?
+  genericEntries      GenericCompetitionEntry[]
+  genericSessions     CompetitionSession[]
+  scoringCriteria     ScoringCriterion[]
+  genericResults      GenericResult[]
 
   @@unique([organizationId, slug])
   @@index([organizationId, status, deletedAt])
+  @@index([organizationId, parentCompetitionId, deletedAt])
   @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Competition_name_trgm_idx")
 }
 
 model Season {
-  id                  String                   @id @default(cuid())
+  id                  String                    @id @default(cuid())
   competitionId       String
   name                String
   startsAt            DateTime
   endsAt              DateTime
-  isActive            Boolean                  @default(false)
-  status              SeasonStatus             @default(DRAFT)
+  isActive            Boolean                   @default(false)
+  status              SeasonStatus              @default(DRAFT)
   regulations         String?
-  winPoints           Int                      @default(3)
-  drawPoints          Int                      @default(1)
-  lossPoints          Int                      @default(0)
-  tieBreakers         Json                     @default("[\"points\",\"goal_difference\",\"goals_for\"]")
-  createdAt           DateTime                 @default(now())
-  updatedAt           DateTime                 @updatedAt
-  competition         Competition              @relation(fields: [competitionId], references: [id], onDelete: Restrict)
+  winPoints           Int                       @default(3)
+  drawPoints          Int                       @default(1)
+  lossPoints          Int                       @default(0)
+  tieBreakers         Json                      @default("[\"points\",\"goal_difference\",\"goals_for\"]")
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  competition         Competition               @relation(fields: [competitionId], references: [id], onDelete: Restrict)
   stages              Stage[]
   registrations       PlayerRegistration[]
   clubEntries         CompetitionClub[]
@@ -1590,6 +1663,8 @@ model Season {
   entitlements        CompetitionEntitlement[]
   billingOrders       BillingOrder[]
   invoiceItems        InvoiceItem[]
+  genericEntries      GenericCompetitionEntry[]
+  genericSessions     CompetitionSession[]
 
   @@unique([competitionId, name])
 }
@@ -1616,6 +1691,7 @@ model Stage {
   groupMemberships    GroupMembership[]
   statisticsSnapshots StatisticsSnapshot[]
   pointAdjustments    PointAdjustment[]
+  genericSessions     CompetitionSession[]
 
   @@unique([seasonId, sortOrder])
   @@index([organizationId, seasonId, type])
@@ -1666,6 +1742,199 @@ model CompetitionRule {
   competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
 
   @@unique([competitionId, key])
+}
+
+model CompetitionTemplate {
+  id              String               @id @default(cuid())
+  code            String
+  version         Int                  @default(1)
+  name            String
+  description     String
+  kind            CompetitionKind
+  participantMode ParticipantMode
+  scoringMethod   ScoringMethod
+  config          Json                 @default("{}")
+  isActive        Boolean              @default(true)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  profiles        CompetitionProfile[]
+
+  @@unique([code, version])
+  @@index([kind, isActive])
+}
+
+model CompetitionProfile {
+  id              String               @id @default(cuid())
+  competitionId   String               @unique
+  templateId      String?
+  kind            CompetitionKind
+  participantMode ParticipantMode
+  scoringMethod   ScoringMethod
+  config          Json                 @default("{}")
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  competition     Competition          @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  template        CompetitionTemplate? @relation(fields: [templateId], references: [id], onDelete: Restrict)
+
+  @@index([kind, scoringMethod])
+}
+
+model CompetitionParticipant {
+  id             String                    @id @default(cuid())
+  organizationId String
+  type           ParticipantType
+  name           String
+  slug           String
+  displayName    String?
+  logoUrl        String?
+  institution    String?
+  contactEmail   String?
+  contactPhone   String?
+  metadata       Json                      @default("{}")
+  isActive       Boolean                   @default(true)
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+  deletedAt      DateTime?
+  organization   Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  entries        GenericCompetitionEntry[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId, type, isActive, deletedAt])
+}
+
+model GenericCompetitionEntry {
+  id               String                    @id @default(cuid())
+  organizationId   String
+  competitionId    String
+  seasonId         String?
+  participantId    String
+  entryName        String?
+  status           GenericEntryStatus        @default(DRAFT)
+  seed             Int?
+  registrationData Json                      @default("{}")
+  idempotencyKey   String
+  submittedAt      DateTime?
+  approvedAt       DateTime?
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  organization     Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  competition      Competition               @relation(fields: [competitionId], references: [id], onDelete: Restrict)
+  season           Season?                   @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  participant      CompetitionParticipant    @relation(fields: [participantId], references: [id], onDelete: Restrict)
+  sessionEntries   CompetitionSessionEntry[]
+  scores           GenericScoreEntry[]
+  results          GenericResult[]
+
+  @@unique([organizationId, idempotencyKey])
+  @@unique([competitionId, seasonId, participantId])
+  @@index([organizationId, competitionId, status])
+}
+
+model CompetitionSession {
+  id             String                    @id @default(cuid())
+  organizationId String
+  competitionId  String
+  seasonId       String?
+  stageId        String?
+  venueId        String?
+  name           String
+  sequence       Int
+  status         CompetitionSessionStatus  @default(DRAFT)
+  startsAt       DateTime?
+  endsAt         DateTime?
+  config         Json                      @default("{}")
+  publishedAt    DateTime?
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+  organization   Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  competition    Competition               @relation(fields: [competitionId], references: [id], onDelete: Restrict)
+  season         Season?                   @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  stage          Stage?                    @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  venue          Venue?                    @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  entries        CompetitionSessionEntry[]
+  scores         GenericScoreEntry[]
+  results        GenericResult[]
+
+  @@unique([competitionId, sequence])
+  @@index([organizationId, competitionId, status, startsAt])
+}
+
+model CompetitionSessionEntry {
+  sessionId String
+  entryId   String
+  lane      String?
+  order     Int?
+  session   CompetitionSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  entry     GenericCompetitionEntry @relation(fields: [entryId], references: [id], onDelete: Restrict)
+
+  @@id([sessionId, entryId])
+  @@index([entryId])
+}
+
+model ScoringCriterion {
+  id             String              @id @default(cuid())
+  organizationId String
+  competitionId  String
+  name           String
+  code           String
+  weight         Float               @default(1)
+  maxScore       Float?
+  sortOrder      Int                 @default(0)
+  config         Json                @default("{}")
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  competition    Competition         @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  scores         GenericScoreEntry[]
+
+  @@unique([competitionId, code])
+  @@index([organizationId, competitionId, sortOrder])
+}
+
+model GenericScoreEntry {
+  id             String                  @id @default(cuid())
+  organizationId String
+  sessionId      String
+  entryId        String
+  criterionId    String?
+  judgeId        String?
+  score          Float                   @default(0)
+  penalty        Float                   @default(0)
+  status         GenericScoreStatus      @default(DRAFT)
+  notes          String?
+  idempotencyKey String
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  session        CompetitionSession      @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  entry          GenericCompetitionEntry @relation(fields: [entryId], references: [id], onDelete: Restrict)
+  criterion      ScoringCriterion?       @relation(fields: [criterionId], references: [id], onDelete: Restrict)
+  judge          User?                   @relation("GenericScoreJudge", fields: [judgeId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, sessionId, entryId, status])
+  @@index([judgeId, createdAt])
+}
+
+model GenericResult {
+  id             String                  @id @default(cuid())
+  organizationId String
+  competitionId  String
+  sessionId      String?
+  scopeKey       String                  @default("competition")
+  entryId        String
+  rank           Int?
+  totalScore     Float
+  tieBreakData   Json                    @default("{}")
+  status         GenericScoreStatus      @default(DRAFT)
+  publishedAt    DateTime?
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  competition    Competition             @relation(fields: [competitionId], references: [id], onDelete: Restrict)
+  session        CompetitionSession?     @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  entry          GenericCompetitionEntry @relation(fields: [entryId], references: [id], onDelete: Restrict)
+
+  @@unique([competitionId, scopeKey, entryId])
+  @@index([organizationId, competitionId, status, rank])
 }
 
 model Club {
@@ -1936,23 +2205,24 @@ model EligibilityCheck {
 }
 
 model Venue {
-  id             String         @id @default(cuid())
-  organizationId String
-  name           String
-  address        String?
-  city           String?
-  capacity       Int?
-  surfaceType    String?
-  status         VenueStatus    @default(AVAILABLE)
-  photoUrl       String?
-  timezone       String         @default("Asia/Jakarta")
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  deletedAt      DateTime?
-  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  matches        Match[]
-  homeClubs      Club[]         @relation("ClubHomeVenue")
-  fixtureDrafts  FixtureDraft[]
+  id              String               @id @default(cuid())
+  organizationId  String
+  name            String
+  address         String?
+  city            String?
+  capacity        Int?
+  surfaceType     String?
+  status          VenueStatus          @default(AVAILABLE)
+  photoUrl        String?
+  timezone        String               @default("Asia/Jakarta")
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  deletedAt       DateTime?
+  organization    Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  matches         Match[]
+  homeClubs       Club[]               @relation("ClubHomeVenue")
+  fixtureDrafts   FixtureDraft[]
+  genericSessions CompetitionSession[]
 
   @@index([organizationId, status, deletedAt])
 }

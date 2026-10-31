@@ -17,6 +17,7 @@ function queryInput(params: Query) {
     q: first(params.q),
     province: first(params.province),
     city: first(params.city),
+    kind: first(params.kind),
     format: first(params.format),
     ageCategory: first(params.ageCategory),
     status: first(params.status),
@@ -33,9 +34,9 @@ export async function generateMetadata({
   const params = await searchParams;
   const filtered = Object.keys(params).length > 0;
   return {
-    title: "Direktori Kompetisi Sepak Bola Indonesia",
+    title: "Direktori Lomba dan Kompetisi Indonesia",
     description:
-      "Cari kompetisi sepak bola berdasarkan wilayah, kategori, status, musim, dan format.",
+      "Cari LCT, lomba sekolah, seni, Gebyar, olahraga, dan kompetisi lain berdasarkan wilayah dan kategori.",
     alternates: { canonical: "/kompetisi" },
     robots: filtered
       ? { index: false, follow: true }
@@ -67,8 +68,8 @@ export default async function CompetitionsPage({ searchParams }: Props) {
     <>
       <PageHero
         eyebrow="Direktori nasional"
-        title="Temukan kompetisi sepak bola"
-        description="Hanya kompetisi dan penyelenggara berstatus Published yang tampil. Cari berdasarkan data resmi sistem dan referensi wilayah tervalidasi."
+        title="Temukan semua jenis lomba"
+        description="Jelajahi LCT, lomba sekolah, seni, keagamaan, Gebyar, olahraga, e-sports, dan format lainnya dari penyelenggara terverifikasi."
       />
       <div className="mx-auto max-w-7xl px-5 py-10 lg:px-8">
         <form
@@ -87,6 +88,12 @@ export default async function CompetitionsPage({ searchParams }: Props) {
               maxLength={80}
               placeholder="Nama kompetisi atau penyelenggara"
             />
+          </label>
+          <label>
+            <span className="mb-2 block text-xs font-bold uppercase tracking-wider text-muted">Jenis lomba</span>
+            <select className="field" name="kind" defaultValue={first(params.kind)}>
+              <option value="">Semua jenis</option><option value="QUIZ">LCT / kuis</option><option value="ACADEMIC">Akademik / sekolah</option><option value="ARTS">Seni</option><option value="RELIGIOUS">Keagamaan</option><option value="FESTIVAL">Gebyar / festival</option><option value="FOOTBALL">Sepak bola</option><option value="ESPORTS">E-sports</option><option value="OTHER">Lainnya</option>
+            </select>
           </label>
           <label>
             <span className="mb-2 block text-xs font-bold uppercase tracking-wider text-muted">
@@ -228,6 +235,7 @@ export default async function CompetitionsPage({ searchParams }: Props) {
                   "Informasi kompetisi, pertandingan, klasemen, dan statistik resmi."}
               </p>
               <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                <span className="rounded-full bg-white/5 px-2.5 py-1">{item.genericProfile?.template?.name || item.category || "Kompetisi"}</span>
                 <span className="rounded-full bg-primary/10 px-2.5 py-1 font-bold text-primary">
                   {item.status}
                 </span>
@@ -243,8 +251,8 @@ export default async function CompetitionsPage({ searchParams }: Props) {
                 </span>
               </div>
               <div className="mt-5 flex gap-4 border-t pt-4 text-xs text-muted">
-                <span>{item._count.clubEntries} klub</span>
-                <span>{item._count.matches} pertandingan</span>
+                <span>{item.genericProfile?.kind === "FOOTBALL" ? `${item._count.clubEntries} klub` : `${item._count.genericEntries} peserta`}</span>
+                <span>{item.genericProfile?.kind === "FOOTBALL" ? `${item._count.matches} pertandingan` : `${item._count.genericSessions} sesi`}</span>
               </div>
             </Link>
           ))}

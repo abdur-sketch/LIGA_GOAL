@@ -35,6 +35,8 @@ const invitationPermission: PermissionKey = "organization.invitation.manage";
 const managerPermissions: PermissionKey[] = [
   "organization.view", "organization.update", "organization.manage_members",
   invitationPermission, "competition.view", "competition.create", "competition.update",
+  "participant.view", "participant.manage", "competition_session.view", "competition_session.manage",
+  "generic_scoring.view", "generic_scoring.manage",
   "season.view", "season.create", "season.update", "club.view", "club.create",
   "club.update", "venue.view", "venue.create", "venue.update", "official.view",
   "official.create", "official.update", "fixture.view", "fixture.create", "fixture.update",
@@ -42,12 +44,15 @@ const managerPermissions: PermissionKey[] = [
 ];
 const editorPermissions: PermissionKey[] = [
   "organization.view", "competition.view", "competition.update", "season.view",
+  "participant.view", "participant.manage", "competition_session.view", "competition_session.manage",
+  "generic_scoring.view", "generic_scoring.manage",
   "season.update", "club.view", "club.create", "club.update", "venue.view",
   "official.view", "fixture.view", "fixture.update", "schedule.view", "match.view",
   "standings.view", "statistics.view",
 ];
 const viewerPermissions: PermissionKey[] = [
   "organization.view", "competition.view", "season.view", "club.view", "venue.view",
+  "participant.view", "competition_session.view", "generic_scoring.view",
   "official.view", "fixture.view", "schedule.view", "match.view", "standings.view",
   "statistics.view",
 ];

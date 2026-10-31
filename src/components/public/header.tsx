@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Bell, Menu } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 
-const links = [["Beranda", "/"], ["Pertandingan", "/pertandingan"], ["Kompetisi", "/kompetisi"], ["Penyelenggara", "/penyelenggara"], ["Klasemen", "/klasemen"], ["Statistik", "/statistik"], ["Klub", "/klub"], ["Berita", "/berita"]];
+const links = [["Beranda", "/"], ["Jelajahi Lomba", "/kompetisi"], ["Agenda", "/agenda"], ["Penyelenggara", "/penyelenggara"], ["Hasil", "/hasil"], ["Peserta", "/peserta"], ["Berita", "/berita"], ["Sepak Bola", "/pertandingan"]];
 
 export function PublicHeader() {
   return (

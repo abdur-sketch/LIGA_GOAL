@@ -75,7 +75,8 @@ async function listPublicCompetitionsUnsafe() {
       organization: { select: { name: true, slug: true } },
       publication: { include: { province: { select: { name: true, slug: true } }, city: { select: { name: true, slug: true } } } },
       seasons: { orderBy: { startsAt: "desc" }, take: 2 },
-      _count: { select: { clubEntries: { where: { status: "APPROVED" } }, matches: { where: { publishedAt: { not: null } } } } },
+      genericProfile: { select: { kind: true, participantMode: true, scoringMethod: true, template: { select: { name: true, code: true } } } },
+      _count: { select: { clubEntries: { where: { status: "APPROVED" } }, matches: { where: { publishedAt: { not: null } } }, genericEntries: { where: { status: "APPROVED" } }, genericSessions: { where: { publishedAt: { not: null } } } } },
     },
     orderBy: [{ status: "asc" }, { name: "asc" }],
   });
@@ -88,6 +89,10 @@ async function getPublicCompetitionUnsafe(slug: string) {
       organization: { select: { name: true, slug: true, publicProfile: { select: { publicSlug: true } } } },
       publication: { include: { province: { select: { name: true, slug: true } }, city: { select: { name: true, slug: true } } } },
       seasons: { orderBy: { startsAt: "desc" } },
+      genericProfile: { include: { template: { select: { name: true, code: true } } } },
+      genericEntries: { where: { status: "APPROVED" }, include: { participant: { select: { id: true, name: true, slug: true, type: true, displayName: true, logoUrl: true, institution: true } } }, orderBy: { createdAt: "asc" } },
+      genericSessions: { where: { publishedAt: { not: null } }, include: { competition: { select: { name: true, publication: { select: { publicSlug: true } }, genericProfile: { select: { kind: true } } } }, venue: { select: { name: true, city: true } }, entries: { include: { entry: { include: { participant: { select: { id: true, name: true, slug: true, type: true, institution: true } } } } } } }, orderBy: [{ startsAt: "asc" }, { sequence: "asc" }] },
+      genericResults: { where: { status: "PUBLISHED", publishedAt: { not: null } }, include: { competition: { select: { name: true, publication: { select: { publicSlug: true } }, genericProfile: { select: { kind: true } } } }, entry: { include: { participant: { select: { id: true, name: true, slug: true, type: true, institution: true, logoUrl: true } } } }, session: { select: { id: true, name: true } } }, orderBy: [{ rank: "asc" }, { totalScore: "desc" }] },
       clubEntries: {
         where: { status: "APPROVED" },
         distinct: ["clubId"],

@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test.describe("Phase 16 national discovery", () => {
   test("desktop can discover a published competition, region, and organizer", async ({ page }) => {
     await page.goto("/kompetisi");
-    await expect(page.getByRole("heading", { name: "Temukan kompetisi sepak bola" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Temukan semua jenis lomba" })).toBeVisible();
     await page.getByRole("searchbox", { name: "Cari kompetisi" }).fill("E2E Phase 3");
     await page.getByRole("button", { name: "Terapkan pencarian" }).click();
     await expect(page.getByRole("link", { name: /E2E Phase 3/ })).toBeVisible();

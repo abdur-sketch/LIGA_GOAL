@@ -11,13 +11,16 @@ import {
 import { getPublicHome } from "@/modules/phase7/service";
 import { getNationalDiscoveryHome } from "@/modules/phase16/service";
 import { BRAND } from "@/lib/brand";
+import { GenericResults, GenericSessionCard } from "@/components/public/generic-competition";
+import { getGenericPublicHome } from "@/modules/phase19/public";
 
 export const revalidate = 60;
 
 export default async function Home() {
-  const [data, discovery] = await Promise.all([
+  const [data, discovery, generic] = await Promise.all([
     getPublicHome(),
     getNationalDiscoveryHome(),
+    getGenericPublicHome(),
   ]);
   const primaryMatches = data.live.length
     ? data.live
@@ -41,8 +44,8 @@ export default async function Home() {
                 <span className="text-primary">Semua Kompetisi.</span>
               </h1>
               <p className="mt-6 max-w-xl text-base leading-7 text-muted sm:text-lg">
-                Kelola dan ikuti perlombaan, pertandingan, klasemen, statistik,
-                serta pengumuman dari satu sumber data resmi.
+                Kelola dan ikuti LCT, lomba sekolah, seni, keagamaan, Gebyar,
+                olahraga, dan kompetisi lainnya dari satu sumber data resmi.
               </p>
               <form action="/kompetisi" className="mt-8 flex max-w-xl gap-2">
                 <input
@@ -55,8 +58,8 @@ export default async function Home() {
                 <button className="btn-primary">Cari</button>
               </form>
               <div className="mt-5 flex flex-wrap gap-3">
-                <Link href="/pertandingan" className="btn-primary h-12 px-6">
-                  Lihat pertandingan <ArrowRight size={17} />
+                <Link href="/agenda" className="btn-primary h-12 px-6">
+                  Lihat agenda lomba <ArrowRight size={17} />
                 </Link>
                 <Link href="/daftar" className="btn-secondary h-12 px-6">
                   Daftarkan organisasi
@@ -67,27 +70,16 @@ export default async function Home() {
               </div>
             </div>
             <div className="rounded-3xl border bg-navy/85 p-5 shadow-2xl shadow-black/30 sm:p-6">
-              <SectionTitle
-                eyebrow={
-                  data.live.length ? "Sedang berlangsung" : "Match center"
-                }
-                title={
-                  data.live.length
-                    ? "Live sekarang"
-                    : data.today.length
-                      ? "Pertandingan hari ini"
-                      : "Pertandingan mendatang"
-                }
-                action={{ label: "Lihat semua", href: "/pertandingan" }}
-              />
+              <SectionTitle eyebrow={generic.sessions.some((item) => item.status === "LIVE") || data.live.length ? "Sedang berlangsung" : "Pusat agenda"} title={generic.sessions.length ? "Agenda lomba mendatang" : data.live.length ? "Live sekarang" : data.today.length ? "Pertandingan hari ini" : "Agenda mendatang"} action={{ label: "Lihat semua", href: "/agenda" }} />
               <div className="space-y-3">
-                {primaryMatches.slice(0, 3).map((match) => (
+                {generic.sessions.slice(0, 3).map((session) => <GenericSessionCard key={session.id} session={session} />)}
+                {!generic.sessions.length && primaryMatches.slice(0, 3).map((match) => (
                   <PublicMatchCard key={match.id} match={match} />
                 ))}
-                {primaryMatches.length === 0 && (
+                {!generic.sessions.length && primaryMatches.length === 0 && (
                   <EmptyState
-                    title="Belum ada pertandingan"
-                    description="Jadwal yang telah dipublikasikan akan tampil otomatis di sini."
+                    title="Belum ada agenda"
+                    description="Babak, sesi, atau pertandingan yang dipublikasikan akan tampil otomatis di sini."
                   />
                 )}
               </div>
@@ -125,7 +117,7 @@ export default async function Home() {
                       item.publication?.province?.name ||
                       "Indonesia"}
                   </span>
-                  <span>{item._count.clubEntries} klub</span>
+                  <span>{item.genericProfile?.kind === "FOOTBALL" ? `${item._count.clubEntries} klub` : `${item._count.genericEntries} peserta`}</span>
                 </div>
               </Link>
             ))}
@@ -179,12 +171,8 @@ export default async function Home() {
         <section className="mx-auto max-w-7xl px-5 py-16 lg:px-8">
           <div className="grid gap-10 lg:grid-cols-[1.35fr_.65fr]">
             <div>
-              <SectionTitle
-                eyebrow="Snapshot resmi"
-                title="Klasemen terkini"
-                action={{ label: "Klasemen lengkap", href: "/klasemen" }}
-              />
-              {data.snapshot?.standings.length ? (
+              <SectionTitle eyebrow="Hasil resmi" title={generic.results.length ? "Peringkat terbaru" : "Klasemen terkini"} action={{ label: "Semua hasil", href: "/hasil" }} />
+              {generic.results.length ? <GenericResults results={generic.results} /> : data.snapshot?.standings.length ? (
                 <StandingsTable rows={data.snapshot.standings} />
               ) : (
                 <EmptyState
@@ -194,11 +182,9 @@ export default async function Home() {
               )}
             </div>
             <div>
-              <SectionTitle
-                eyebrow="Performa"
-                title="Top scorer"
-                action={{ label: "Lihat ranking", href: "/top-scorer" }}
-              />
+              <SectionTitle eyebrow="Jelajahi" title="Jenis kompetisi" action={{ label: "Semua lomba", href: "/kompetisi" }} />
+              <div className="grid gap-2 text-sm">{["LCT & kuis", "Lomba sekolah", "Seni & kreativitas", "Keagamaan", "Gebyar multi-cabang", "Olahraga & e-sports"].map((label) => <Link className="rounded-xl border p-3 hover:border-primary/40 hover:text-primary" href={`/kompetisi?q=${encodeURIComponent(label.split(" ")[0])}`} key={label}>{label}</Link>)}</div>
+              <div className="mt-6"><SectionTitle eyebrow="Sepak bola" title="Top scorer" action={{ label: "Lihat ranking", href: "/top-scorer" }} /></div>
               {data.snapshot?.playerStatistics.map((row, index) => (
                 <Link
                   href={`/pemain/${row.player.id}`}

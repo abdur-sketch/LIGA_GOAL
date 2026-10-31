@@ -1,4 +1,4 @@
-import { CompetitionFormat, CompetitionStatus } from "@prisma/client";
+import { CompetitionFormat, CompetitionKind, CompetitionStatus } from "@prisma/client";
 import { z } from "zod";
 
 const slug = z.string().trim().toLowerCase().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(120);
@@ -9,6 +9,7 @@ export const discoveryQuerySchema = z.object({
   q: optionalText(80),
   province: optionalSlug,
   city: optionalSlug,
+  kind: z.preprocess((value) => value === "" ? undefined : value, z.nativeEnum(CompetitionKind).optional()),
   format: z.preprocess((value) => value === "" ? undefined : value, z.nativeEnum(CompetitionFormat).optional()),
   ageCategory: optionalText(40),
   status: z.preprocess((value) => value === "" ? undefined : value, z.nativeEnum(CompetitionStatus).optional()),

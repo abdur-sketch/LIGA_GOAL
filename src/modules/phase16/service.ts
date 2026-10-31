@@ -53,7 +53,8 @@ const directoryInclude = Prisma.validator<Prisma.CompetitionInclude>()({
   organization: { select: { name: true, slug: true, publicProfile: { select: { publicSlug: true, displayName: true } } } },
   publication: { include: { province: { select: { name: true, slug: true, code: true } }, city: { select: { name: true, slug: true, code: true } } } },
   seasons: { where: { status: { in: ["ACTIVE", "COMPLETED"] } }, orderBy: { startsAt: "desc" }, take: 2 },
-  _count: { select: { clubEntries: { where: { status: "APPROVED" } }, matches: { where: { publishedAt: { not: null } } } } },
+  genericProfile: { select: { kind: true, participantMode: true, scoringMethod: true, template: { select: { name: true, code: true } } } },
+  _count: { select: { clubEntries: { where: { status: "APPROVED" } }, matches: { where: { publishedAt: { not: null } } }, genericEntries: { where: { status: "APPROVED" } }, genericSessions: { where: { publishedAt: { not: null } } } } },
 });
 
 async function searchPublicCompetitionsUnsafe(raw: unknown) {
@@ -64,6 +65,7 @@ async function searchPublicCompetitionsUnsafe(raw: unknown) {
   const where: Prisma.CompetitionWhereInput = {
     ...discoveryCompetitionWhere,
     ...(input.format ? { format: input.format } : {}),
+    ...(input.kind ? { genericProfile: { is: { kind: input.kind } } } : {}),
     ...(input.status ? { status: input.status } : {}),
     ...(input.season ? { seasons: { some: { OR: [{ id: input.season }, { name: { equals: input.season, mode: "insensitive" } }] } } } : {}),
     publication: { is: {
@@ -92,6 +94,7 @@ async function searchPublicCompetitionsUnsafe(raw: unknown) {
       c."deletedAt" IS NULL AND c.status IN ('REGISTRATION','ONGOING','COMPLETED','ARCHIVED')
       ${input.status ? Prisma.sql`AND c.status=CAST(${input.status} AS "CompetitionStatus")` : Prisma.empty}
       ${input.format ? Prisma.sql`AND c.format=CAST(${input.format} AS "CompetitionFormat")` : Prisma.empty}
+      ${input.kind ? Prisma.sql`AND EXISTS (SELECT 1 FROM "CompetitionProfile" gp WHERE gp."competitionId"=c.id AND gp.kind=CAST(${input.kind} AS "CompetitionKind"))` : Prisma.empty}
       ${input.season ? Prisma.sql`AND EXISTS (SELECT 1 FROM "Season" s WHERE s."competitionId"=c.id AND (s.id=${input.season} OR lower(s.name)=lower(${input.season})))` : Prisma.empty}
       AND o.status='ACTIVE' AND o."deletedAt" IS NULL AND p.status='PUBLISHED'`;
     const from = Prisma.sql`FROM candidates cp JOIN "Competition" c ON c.id=cp."competitionId" JOIN "Organization" o ON o.id=c."organizationId" JOIN "PublicOrganizerProfile" p ON p."organizationId"=o.id WHERE ${competitionFilters}`;
