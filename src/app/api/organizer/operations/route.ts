@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { NextResponse, type NextRequest } from "next/server";
 import { ZodError } from "zod";
 import { ApiError, getApiActor } from "@/lib/auth/api";
+import { captureError } from "@/lib/observability/logger";
 import { withRuntimeDatabaseRoute } from "@/lib/runtime-route";
 import { enforceMutationRateLimit, rateLimitKey } from "@/lib/security/rate-limit";
 import { assignJudge, configurePublicRegistration, getOrganizerOperations, reviewPublicRegistration, revokeJudgeAssignment, transitionResultWorkflow } from "@/modules/phase21/service";
@@ -11,7 +12,7 @@ function failure(error: unknown) {
   if (error instanceof ApiError) return NextResponse.json({ error: error.message, details: error.details }, { status: error.status });
   if (error instanceof ZodError) return NextResponse.json({ error: "Data operasi tidak valid.", details: error.flatten().fieldErrors }, { status: 422 });
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return NextResponse.json({ error: "Operasi yang sama sudah diproses." }, { status: 409 });
-  console.error("phase21-organizer-operations", error);
+  captureError("phase21_organizer_operations_failed", error);
   return NextResponse.json({ error: "Terjadi kesalahan internal." }, { status: 500 });
 }
 

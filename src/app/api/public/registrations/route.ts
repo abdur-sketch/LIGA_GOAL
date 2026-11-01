@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ZodError } from "zod";
 import { ApiError } from "@/lib/auth/api";
+import { captureError } from "@/lib/observability/logger";
 import { enforceMutationRateLimit, rateLimitKey, trustedClientAddress } from "@/lib/security/rate-limit";
 import { deletePrivateDocument, savePrivateDocument } from "@/lib/storage/private-documents";
 import { publicRegistrationStatus, resolvePublicRegistrationTarget, submitPublicRegistration } from "@/modules/phase21/service";
@@ -8,7 +9,7 @@ import { publicRegistrationStatus, resolvePublicRegistrationTarget, submitPublic
 function failure(error: unknown) {
   if (error instanceof ApiError) return NextResponse.json({ error: error.message, details: error.details }, { status: error.status });
   if (error instanceof ZodError) return NextResponse.json({ error: "Data pendaftaran tidak valid.", details: error.flatten().fieldErrors }, { status: 422 });
-  console.error("phase21-public-registration", error);
+  captureError("phase21_public_registration_failed", error);
   return NextResponse.json({ error: "Pendaftaran belum dapat diproses. Silakan coba lagi." }, { status: 500 });
 }
 

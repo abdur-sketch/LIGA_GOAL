@@ -290,6 +290,21 @@ enum RegistrationReviewAction {
   WITHDRAW
 }
 
+enum PrivacyRequestType {
+  ACCESS
+  CORRECTION
+  ERASURE
+}
+
+enum PrivacyRequestStatus {
+  SUBMITTED
+  VERIFIED
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
 enum SeasonStatus {
   DRAFT
   ACTIVE
@@ -744,6 +759,8 @@ model User {
   resultApprovalHistory       ResultApprovalHistory[]      @relation("ResultHistoryActor")
   publicRegistrationsReviewed PublicRegistration[]         @relation("PublicRegistrationReviewer")
   registrationReviewHistory   PublicRegistrationHistory[]  @relation("RegistrationHistoryActor21")
+  privacyRequestsHandled      PrivacyDataRequest[]         @relation("PrivacyRequestHandler")
+  sensitiveDataAccesses       SensitiveDataAccessLog[]     @relation("SensitiveDataAccessActor")
 }
 
 model PasswordResetToken {
@@ -868,6 +885,8 @@ model Organization {
   scoringCriteria           ScoringCriterion[]
   genericScoreEntries       GenericScoreEntry[]
   genericResults            GenericResult[]
+  privacyDataRequests       PrivacyDataRequest[]
+  sensitiveDataAccessLogs   SensitiveDataAccessLog[]
   judgeAssignments          JudgeAssignment[]
   resultApprovalWorkflows   ResultApprovalWorkflow[]
   resultApprovalHistory     ResultApprovalHistory[]
@@ -2107,6 +2126,16 @@ model PublicRegistration {
   tokenHash             String                      @unique
   idempotencyKey        String
   dedupeKey             String
+  privacyVersion        String                      @default("legacy-phase21")
+  processingConsentAt   DateTime                    @default(now())
+  processingContext     Json                        @default("{}")
+  isMinor               Boolean                     @default(false)
+  guardianName          String?
+  guardianContact       String?
+  guardianConsentAt     DateTime?
+  retentionUntil        DateTime?
+  deletionRequestedAt   DateTime?
+  anonymizedAt          DateTime?
   submittedAt           DateTime                    @default(now())
   reviewedById          String?
   reviewedAt            DateTime?
@@ -2122,11 +2151,55 @@ model PublicRegistration {
   approvedParticipant   CompetitionParticipant?     @relation(fields: [approvedParticipantId], references: [id], onDelete: SetNull)
   approvedEntry         GenericCompetitionEntry?    @relation(fields: [approvedEntryId], references: [id], onDelete: SetNull)
   history               PublicRegistrationHistory[]
+  privacyRequests       PrivacyDataRequest[]
 
   @@unique([organizationId, competitionId, idempotencyKey], map: "PublicRegistration_organizationId_competitionId_idempotency_key")
   @@unique([competitionId, dedupeKey])
   @@index([organizationId, competitionId, status, submittedAt], map: "PublicRegistration_organizationId_competitionId_status_subm_idx")
   @@index([contactEmail, competitionId, status])
+}
+
+model PrivacyDataRequest {
+  id                 String               @id @default(cuid())
+  organizationId     String
+  registrationId     String
+  type               PrivacyRequestType
+  status             PrivacyRequestStatus @default(SUBMITTED)
+  requesterEmailHash String
+  tokenHash          String               @unique
+  idempotencyKey     String
+  description        String?
+  verifiedAt         DateTime?
+  handledById        String?
+  handledAt          DateTime?
+  decisionReason     String?
+  completedAt        DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  organization       Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  registration       PublicRegistration   @relation(fields: [registrationId], references: [id], onDelete: Restrict)
+  handledBy          User?                @relation("PrivacyRequestHandler", fields: [handledById], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, status, createdAt])
+  @@index([registrationId, createdAt])
+}
+
+model SensitiveDataAccessLog {
+  id             String       @id @default(cuid())
+  organizationId String
+  actorId        String
+  resourceType   String
+  resourceId     String?
+  purpose        String
+  fieldSet       String[]     @default([])
+  requestId      String?
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  actor          User         @relation("SensitiveDataAccessActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, createdAt])
+  @@index([actorId, createdAt])
 }
 
 model PublicRegistrationHistory {

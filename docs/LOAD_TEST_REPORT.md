@@ -1,20 +1,32 @@
-# Load Test Report
+# PORTAL LOMBA — Load & Concurrency Test Report
 
-PROJECT: PORTAL LOMBA
-PHASE: 9
-DATE: 2026-10-11
+Tanggal: 1 November 2026
+Environment: local Next.js production build + PostgreSQL loopback, data sintetis; bukan production-shaped staging.
 
-Environment: two local Next.js 16.4 production processes, shared PostgreSQL 16, LocalStack S3, synthetic data only. Workload: realtime match polling through `scripts/realtime-load-test.mjs`, 1-second polls, 10-second samples.
+## HTTP sample Phase 22
 
-| Matches | Viewers | Requests | Errors | Ordering / duplicates | p50 | p95 | p99 |
-|---:|---:|---:|---:|---:|---:|---:|---:|
-| 10 | 100 | 901 | 0 | 0 / 0 | 98.26 ms | 585.54 ms | 612.40 ms |
-| 50 | 250 | 2,164 | 0 | 0 / 0 | 126.01 ms | 807.77 ms | 839.40 ms |
-| 50 | 500 | 3,235 | 0 | 0 / 0 | 667.58 ms | 1,104.20 ms | 1,246.99 ms |
-| 50, one surviving instance | 250 | 1,716 | 0 | 0 / 0 | 491.35 ms | 941.18 ms | 985.74 ms |
+| Endpoint | Concurrency | Duration | Requests | RPS | Fail | p50 | p95 | p99 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `/api/health/live` | 20 | 10 s | 6,664 | 666.4 | 0 | 24.60 ms | 51.96 ms | 79.66 ms |
+| `/api/health/ready` | 10 | 10 s | 6,248 | 624.8 | 0 | 13.74 ms | 26.51 ms | 31.51 ms |
 
-Peak observed database connections after two-instance runs: 27. Post-run memory was about 370 MB per Next process; this is a point sample, not peak telemetry. Restarted and surviving instances returned byte-identical realtime payload hashes for the same cursor and readiness remained HTTP 200.
+Sampel ini hanya mengukur overhead endpoint lokal. Tidak ada target PASS/FAIL karena owner belum menyetujui expected organizer count, registration burst, sustained traffic, latency/error SLO, topology, atau budget. Angka tidak boleh dipakai sebagai klaim kapasitas produksi.
 
-An earlier 500-viewer attempt returned 431 failures and a subsequent 250-viewer attempt returned 208 HTTP 429 responses because synthetic rate-limit buckets from consecutive runs were retained. After clearing only the disposable test database buckets between independent samples, the reported runs had zero errors. This proves limiter behavior; it is not omitted from the evidence.
+## Concurrency correctness
 
-Limits: no load balancer, managed DB, multi-host latency, sustained soak, write-heavy 50-match operator workload, or production cost was measured. No production capacity claim is made. Provider/topology selection and SLO approval are required before staging capacity testing.
+| Kasus | Status lokal | Evidence |
+| --- | --- | --- |
+| Pendaftaran bersamaan / kuota terakhir | PASS | Transactional function locks profile and checks active count. |
+| Duplicate submission | PASS | Tenant dedupe key + idempotency uniqueness. |
+| Input nilai bersamaan | PASS | 10 idempotent writes converge without duplicate score. |
+| Approval race | PASS | Tepat satu transition berhasil. |
+| Publication race | PASS | Tepat satu publication berhasil. |
+| Replay privacy request | PASS | Idempotency key returns existing request. |
+| Rate limiting | PASS regression | Mutation/public route limiter tests retained. |
+| Database connection handling | PARTIAL | Metrics exposes current/max; soak/pool exhaustion staging belum dilakukan. |
+
+Post-run point sample: 11/100 koneksi database (termasuk sesi pemeriksaan), ukuran database 16,940,055 byte, dan RSS proses Next.js sekitar 482,500 KiB. Ini bukan peak telemetry dan tidak dianggap evidence staging. Database test kemudian dihapus; tidak ada database/role CI sementara tertinggal. Historical Phase 9 realtime samples tetap ada dalam Git history, tetapi tidak menggantikan workload multi-kompetisi Phase 22.
+
+## Test berikutnya
+
+Setelah owner menyetujui target, lakukan di staging terisolasi: registration burst dan last-slot race, scoring write workload, read/publication mix, 30–60 minute soak, provider/storage latency, pool exhaustion/recovery, single-instance loss, serta resource telemetry (CPU, RSS, DB CPU/IO/connections/locks). Tetapkan acceptance sebelum test, bukan setelah melihat hasil.

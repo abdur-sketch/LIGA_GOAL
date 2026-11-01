@@ -94,6 +94,8 @@ export const ownerPermissionKeys: PermissionKey[] = [
   "judge.assignment.manage",
   "registration.public.view",
   "registration.public.review",
+  "privacy.request.view",
+  "privacy.request.manage",
   "result.workflow.view",
   "result.workflow.submit",
   "result.workflow.review",

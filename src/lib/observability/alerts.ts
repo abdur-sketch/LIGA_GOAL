@@ -13,12 +13,15 @@ export async function deliverAlert(alert: OperationalAlert, fetcher: FetchLike =
   log("error", "alert_delivery_failed", { key: alert.key, severity: alert.severity }); return { status: "failed" as const };
 }
 
-export function thresholdAlerts(input: { databaseUp: boolean; failedJobs: number; pendingNotifications: number; realtimeDelaySeconds: number; backupAgeHours: number }) {
+export function thresholdAlerts(input: { databaseUp: boolean; failedJobs: number; pendingNotifications: number; realtimeDelaySeconds: number; backupAgeHours: number; registrationFailures5m?: number; scoreAnomalies5m?: number; databaseConnectionRatio?: number }) {
   const now = new Date().toISOString(); const alerts: OperationalAlert[] = [];
   if (!input.databaseUp) alerts.push({ key: "database_unavailable", severity: "critical", summary: "Database readiness failed", value: 0, threshold: 1, occurredAt: now });
   if (input.failedJobs > 0) alerts.push({ key: "failed_jobs", severity: "warning", summary: "Background jobs failed", value: input.failedJobs, threshold: 0, occurredAt: now });
   if (input.pendingNotifications > 100) alerts.push({ key: "notification_backlog", severity: "warning", summary: "Notification backlog exceeded", value: input.pendingNotifications, threshold: 100, occurredAt: now });
   if (input.realtimeDelaySeconds > 30) alerts.push({ key: "realtime_delay", severity: "critical", summary: "Realtime delay exceeded", value: input.realtimeDelaySeconds, threshold: 30, occurredAt: now });
   if (input.backupAgeHours > 26) alerts.push({ key: "backup_stale", severity: "critical", summary: "Latest backup is stale", value: input.backupAgeHours, threshold: 26, occurredAt: now });
+  if ((input.registrationFailures5m ?? 0) > 10) alerts.push({ key: "registration_failure_spike", severity: "warning", summary: "Registration failures exceeded local threshold", value: input.registrationFailures5m!, threshold: 10, occurredAt: now });
+  if ((input.scoreAnomalies5m ?? 0) > 0) alerts.push({ key: "score_anomaly", severity: "critical", summary: "Scoring anomaly detected", value: input.scoreAnomalies5m!, threshold: 0, occurredAt: now });
+  if ((input.databaseConnectionRatio ?? 0) > 0.8) alerts.push({ key: "database_connection_pressure", severity: "critical", summary: "Database connections exceeded 80 percent", value: input.databaseConnectionRatio!, threshold: 0.8, occurredAt: now });
   return alerts;
 }

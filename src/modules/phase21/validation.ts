@@ -4,6 +4,7 @@ const id = z.string().trim().min(1).max(96);
 const optionalId = z.preprocess((value) => value === "" ? undefined : value, id.optional());
 const optionalText = (max: number) => z.preprocess((value) => value === "" ? undefined : value, z.string().trim().max(max).optional());
 const optionalDate = z.preprocess((value) => value === "" || value == null ? undefined : value, z.coerce.date().optional());
+export const PUBLIC_REGISTRATION_PRIVACY_VERSION = "phase22-draft-2026-11-01";
 
 export const judgeAssignmentSchema = z.object({
   organizationId: id,
@@ -48,8 +49,15 @@ export const publicRegistrationSchema = z.object({
   formData: safeJson,
   documents: z.array(documentSchema).max(10).default([]),
   idempotencyKey: z.string().trim().regex(/^[A-Za-z0-9:_-]{12,160}$/),
+  privacyAccepted: z.literal(true),
+  privacyVersion: z.literal(PUBLIC_REGISTRATION_PRIVACY_VERSION),
+  processingContext: safeJson,
+  isMinor: z.coerce.boolean().default(false),
+  guardianName: optionalText(160),
+  guardianContact: optionalText(160),
+  guardianConsent: z.coerce.boolean().default(false),
   website: z.string().max(0).optional(),
-}).strict();
+}).strict().refine((value) => !value.isMinor || (Boolean(value.guardianName) && Boolean(value.guardianContact) && value.guardianConsent), { path: ["guardianConsent"], message: "Peserta anak memerlukan persetujuan dan kontak wali." });
 
 export const registrationReviewSchema = z.object({
   organizationId: id,

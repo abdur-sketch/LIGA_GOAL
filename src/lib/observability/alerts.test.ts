@@ -4,6 +4,7 @@ afterEach(() => { delete process.env.ALERT_WEBHOOK_URL; delete process.env.ALERT
 describe("operational alert adapter", () => {
   it("detects database, realtime, job, notification, and backup thresholds", () => { expect(thresholdAlerts({ databaseUp: false, failedJobs: 1, pendingNotifications: 101, realtimeDelaySeconds: 31, backupAgeHours: 27 })).toHaveLength(5); });
   it("does not call an external service until explicitly configured", async () => { const fetcher = vi.fn(); expect(await deliverAlert({ key: "test", severity: "warning", summary: "test", value: 1, threshold: 0, occurredAt: new Date().toISOString() }, fetcher as never)).toEqual({ status: "blocked" }); expect(fetcher).not.toHaveBeenCalled(); });
+  it("detects registration, score, and database pressure anomalies", () => { expect(thresholdAlerts({ databaseUp: true, failedJobs: 0, pendingNotifications: 0, realtimeDelaySeconds: 0, backupAgeHours: 0, registrationFailures5m: 11, scoreAnomalies5m: 1, databaseConnectionRatio: 0.81 }).map((item) => item.key)).toEqual(["registration_failure_spike", "score_anomaly", "database_connection_pressure"]); });
   it("delivers an authenticated JSON alert to a configured webhook", async () => {
     process.env.ALERT_WEBHOOK_URL = "https://alerts.example.test/events";
     process.env.ALERT_WEBHOOK_TOKEN = "sandbox-secret";

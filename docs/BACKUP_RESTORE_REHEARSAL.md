@@ -1,5 +1,7 @@
 # Backup & Restore Rehearsal — Phase 20
 
+> Phase 22 status (1 November 2026): historical local rehearsal below remains valid regression evidence, but **staging provider backup/restore is BLOCKED** because no approved staging provider or credential is available. It must not be reported as staging PASS.
+
 Tanggal: 1 November 2026. Rehearsal menggunakan dua database PostgreSQL lokal terisolasi dan dump sementara; database lokal utama dan produksi tidak digunakan sebagai sumber.
 
 ## Prosedur
@@ -38,3 +40,16 @@ Status: **PASS**. JSON integritas sumber dan restore identik. Pemeriksaan akhir 
 - Restore selalu ke database baru; jangan menimpa staging/production aktif.
 - Jalankan smoke test, integrity query, RLS runtime test, dan audit akses setelah restore.
 - Promosi atau cutover membutuhkan persetujuan pemilik dan rollback window.
+
+## Phase 22 staging procedure (belum dieksekusi)
+
+1. Owner menyetujui target RPO/RTO, retention, encryption, region, backup role, dan failure domain.
+2. Dari staging-only backup runner, catat release SHA/migration, buat encrypted backup, checksum, dan immutable audit reference tanpa mencetak secret.
+3. Restore ke database baru yang terisolasi; jangan overwrite database aktif.
+4. Gunakan runtime role `NOBYPASSRLS`, lalu verifikasi jumlah/relasi organisasi, kompetisi, cabang, peserta, nilai, workflow hasil, privacy request, dan audit log.
+5. Jalankan orphan query, schema drift, runtime RLS, public data leakage check, dan application smoke test.
+6. Ukur waktu backup/restore dan data-loss window terhadap target yang telah disetujui. Catat gap sebagai FAIL, bukan mengubah target setelah test.
+7. Uji migration-failure recovery: hentikan traffic mutation, pertahankan evidence, rollback aplikasi ke release kompatibel, restore/correct forward sesuai runbook yang disetujui, lalu revalidate.
+8. Hapus target restore dan credential sementara secara terkontrol setelah evidence direview; pertahankan audit record sesuai policy.
+
+Evidence wajib: provider/job ID, source/target teranonimisasi, SHA release, migration list, checksum, timestamp, ukuran, durasi, integrity query, RLS result, tester, dan approver. Sampai evidence tersebut ada, RPO/RTO berstatus **TBD — OWNER APPROVAL REQUIRED** dan gate staging tetap **BLOCKED**.

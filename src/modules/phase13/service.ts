@@ -37,7 +37,7 @@ const managerPermissions: PermissionKey[] = [
   invitationPermission, "competition.view", "competition.create", "competition.update",
   "participant.view", "participant.manage", "competition_session.view", "competition_session.manage",
   "generic_scoring.view", "generic_scoring.manage",
-  "judge.assignment.view", "judge.assignment.manage", "registration.public.view", "registration.public.review",
+  "judge.assignment.view", "judge.assignment.manage", "registration.public.view", "registration.public.review", "privacy.request.view", "privacy.request.manage",
   "result.workflow.view", "result.workflow.submit", "result.workflow.review", "result.workflow.approve", "result.workflow.publish",
   "season.view", "season.create", "season.update", "club.view", "club.create",
   "club.update", "venue.view", "venue.create", "venue.update", "official.view",
@@ -48,7 +48,7 @@ const editorPermissions: PermissionKey[] = [
   "organization.view", "competition.view", "competition.update", "season.view",
   "participant.view", "participant.manage", "competition_session.view", "competition_session.manage",
   "generic_scoring.view", "generic_scoring.manage",
-  "judge.assignment.view", "judge.assignment.manage", "registration.public.view", "registration.public.review",
+  "judge.assignment.view", "judge.assignment.manage", "registration.public.view", "registration.public.review", "privacy.request.view", "privacy.request.manage",
   "result.workflow.view", "result.workflow.submit", "result.workflow.review", "result.workflow.approve", "result.workflow.publish",
   "season.update", "club.view", "club.create", "club.update", "venue.view",
   "official.view", "fixture.view", "fixture.update", "schedule.view", "match.view",
@@ -67,7 +67,7 @@ const judgePermissions: PermissionKey[] = [
 ];
 const verifierPermissions: PermissionKey[] = [
   "organization.view", "competition.view", "participant.view", "participant.manage",
-  "registration.public.view", "registration.public.review",
+  "registration.public.view", "registration.public.review", "privacy.request.view",
 ];
 
 export function tokenDigest(token: string) {

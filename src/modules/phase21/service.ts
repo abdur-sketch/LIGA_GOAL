@@ -106,11 +106,12 @@ export async function submitPublicRegistration(raw: unknown) {
   const dedupeKey = hash(`${input.contactEmail}:${input.participantName.trim().toLowerCase()}:${input.participantType}`);
   try {
     const rows = await db.$queryRaw<SubmissionRow[]>(Prisma.sql`
-      SELECT * FROM public.phase21_submit_public_registration(
+      SELECT * FROM public.phase22_submit_public_registration(
         ${id}, ${historyId}, ${input.publicSlug}, ${input.participantType}::"ParticipantType", ${registrationNumber},
         ${input.participantName}, ${input.institution ?? null}, ${input.contactEmail}, ${input.contactPhone ?? null},
         ${JSON.stringify(input.teamData)}::jsonb, ${JSON.stringify(input.formData)}::jsonb, ${JSON.stringify(input.documents)}::jsonb,
-        ${tokenHash}, ${input.idempotencyKey}, ${dedupeKey}
+        ${tokenHash}, ${input.idempotencyKey}, ${dedupeKey}, ${input.privacyVersion}, ${JSON.stringify(input.processingContext)}::jsonb,
+        ${input.isMinor}, ${input.guardianName ?? null}, ${input.guardianContact ?? null}
       )
     `);
     if (!rows[0]) throw new Error("Public registration function returned no row.");
@@ -120,6 +121,8 @@ export async function submitPublicRegistration(raw: unknown) {
     if (message.includes("REGISTRATION_CLOSED")) throw new ApiError(409, "Pendaftaran belum dibuka atau sudah ditutup.");
     if (message.includes("REGISTRATION_QUOTA_FULL")) throw new ApiError(409, "Kuota pendaftaran sudah penuh.");
     if (message.includes("PARTICIPANT_MODE_MISMATCH")) throw new ApiError(422, "Jenis peserta tidak sesuai dengan lomba.");
+    if (message.includes("PRIVACY_CONSENT_REQUIRED")) throw new ApiError(422, "Persetujuan pemrosesan data wajib dicatat.");
+    if (message.includes("GUARDIAN_CONSENT_REQUIRED")) throw new ApiError(422, "Peserta anak memerlukan persetujuan wali.");
     if (message.includes("unique constraint") || message.includes("duplicate key")) throw new ApiError(409, "Pendaftaran yang sama sudah diterima.");
     throw error;
   }
@@ -277,6 +280,9 @@ export async function getOrganizerOperations(actor: ApiActor, organizationId: st
       ...assignments.filter((item) => item.conflictDeclared).map((item) => `Konflik kepentingan: ${item.judge.name}`),
       ...assignments.filter((item) => item.status === "ACTIVE" && item.validUntil && item.validUntil <= now).map((item) => `Penugasan kedaluwarsa: ${item.judge.name}`),
     ];
+    if (registrations.length && permissions.has("privacy.request.view")) {
+      await db.sensitiveDataAccessLog.create({ data: { organizationId, actorId: actor.id, resourceType: "PublicRegistrationQueue", purpose: "Organizer registration verification queue", fieldSet: ["participantName", "participantType", "institution", "status"] } });
+    }
     return { metrics: { competitions, participants, pendingRegistrations, liveSessions, incompleteScores, pendingResults, publishedResults, activeJudges: assignments.filter((item) => item.status === "ACTIVE" && (!item.validUntil || item.validUntil > now)).length }, assignments, registrations, workflows, members, audits, competitionOptions, securityWarnings, capabilities: Object.fromEntries(["judge.assignment.manage", "registration.public.review", "result.workflow.review", "result.workflow.approve", "result.workflow.publish", "result.workflow.reopen"].map((key) => [key, permissions.has(key)])) };
   });
 }

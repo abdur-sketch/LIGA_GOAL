@@ -35,6 +35,7 @@ const navigation = [
   [ShieldCheck, "Verification", "/admin/verification"],
   [ShieldAlert, "Moderation", "/admin/abuse"],
   [AlertTriangle, "Health", "/admin/operations"],
+  [ShieldCheck, "Release readiness", "/admin/readiness"],
   [ListChecks, "Audit", "/admin/audit"],
   [Building2, "Organisasi", "/admin/organizations"],
   [SearchCheck, "Discovery", "/admin/discovery"],
