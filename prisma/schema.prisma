@@ -256,6 +256,40 @@ enum GenericScoreStatus {
   VOID
 }
 
+enum JudgeAssignmentStatus {
+  ACTIVE
+  INACTIVE
+  REVOKED
+  EXPIRED
+}
+
+enum ResultWorkflowStatus {
+  DRAFT
+  SUBMITTED
+  REVIEWED
+  APPROVED
+  PUBLISHED
+  REOPENED
+}
+
+enum PublicRegistrationStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  REVISION_REQUESTED
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+enum RegistrationReviewAction {
+  SUBMIT
+  START_REVIEW
+  REQUEST_REVISION
+  APPROVE
+  REJECT
+  WITHDRAW
+}
+
 enum SeasonStatus {
   DRAFT
   ACTIVE
@@ -699,6 +733,17 @@ model User {
   moderationNotes             ModerationNote[]             @relation("ModerationNoteAuthor")
   reviewedModerationAppeals   ModerationAppeal[]           @relation("ModerationAppealReviewer")
   genericScoreEntries         GenericScoreEntry[]          @relation("GenericScoreJudge")
+  judgeAssignments            JudgeAssignment[]            @relation("AssignedJudge")
+  judgeAssignmentsCreated     JudgeAssignment[]            @relation("JudgeAssignmentCreator")
+  judgeAssignmentsRevoked     JudgeAssignment[]            @relation("JudgeAssignmentRevoker")
+  resultWorkflowsSubmitted    ResultApprovalWorkflow[]     @relation("ResultSubmitter")
+  resultWorkflowsReviewed     ResultApprovalWorkflow[]     @relation("ResultReviewer")
+  resultWorkflowsApproved     ResultApprovalWorkflow[]     @relation("ResultApprover")
+  resultWorkflowsPublished    ResultApprovalWorkflow[]     @relation("ResultPublisher")
+  resultWorkflowsReopened     ResultApprovalWorkflow[]     @relation("ResultReopener")
+  resultApprovalHistory       ResultApprovalHistory[]      @relation("ResultHistoryActor")
+  publicRegistrationsReviewed PublicRegistration[]         @relation("PublicRegistrationReviewer")
+  registrationReviewHistory   PublicRegistrationHistory[]  @relation("RegistrationHistoryActor21")
 }
 
 model PasswordResetToken {
@@ -728,101 +773,106 @@ model EmailVerificationToken {
 }
 
 model Organization {
-  id                      String                      @id @default(cuid())
-  name                    String
-  slug                    String                      @unique
-  status                  OrganizationStatus          @default(PENDING)
-  logoUrl                 String?
-  contactEmail            String?
-  contactPhone            String?
-  address                 String?
-  ownerId                 String?
-  createdAt               DateTime                    @default(now())
-  updatedAt               DateTime                    @updatedAt
-  deletedAt               DateTime?
-  memberships             OrganizationMember[]
-  roles                   Role[]
-  competitions            Competition[]
-  clubs                   Club[]
-  venues                  Venue[]
-  auditLogs               AuditLog[]
-  owner                   User?                       @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Restrict)
-  officials               Official[]
-  competitionClubs        CompetitionClub[]
-  players                 Player[]
-  playerRegistrations     PlayerRegistration[]
-  playerDocuments         PlayerDocument[]
-  rosterEntries           RosterEntry[]
-  eligibilityChecks       EligibilityCheck[]
-  registrationHistory     RegistrationHistory[]
-  stages                  Stage[]
-  groups                  Group[]
-  groupMemberships        GroupMembership[]
-  fixtureGenerations      FixtureGeneration[]
-  fixtureDrafts           FixtureDraft[]
-  matches                 Match[]
-  matchAssignments        MatchOfficialAssignment[]
-  scheduleHistory         MatchScheduleHistory[]
-  bracketTies             BracketTie[]
-  bracketSlots            BracketSlot[]
-  fixturePublications     FixturePublication[]
-  matchLineups            MatchLineup[]
-  matchLineupPlayers      MatchLineupPlayer[]
-  matchEvents             MatchEvent[]
-  matchResults            MatchResult[]
-  matchApprovals          MatchApproval[]
-  matchCorrections        MatchCorrection[]
-  matchRealtimeOutbox     MatchRealtimeOutbox[]
-  bracketLegs             BracketLeg[]
-  statisticsSnapshots     StatisticsSnapshot[]
-  pointAdjustments        PointAdjustment[]
-  statisticsJobs          StatisticsRecomputeJob[]
-  statisticsRevisions     StatisticsRevision[]
-  transferWindows         TransferWindow[]
-  transferRequests        TransferRequest[]
-  transferApprovals       TransferApproval[]
-  transferHistory         TransferHistory[]
-  playerAvailability      PlayerAvailability[]
-  injuryCases             InjuryCase[]
-  disciplinaryCases       DisciplinaryCase[]
-  suspensions             Suspension[]
-  articles                Article[]
-  articleRevisions        ArticleRevision[]
-  publicFollows           PublicFollow[]
-  notificationPreferences NotificationPreference[]
-  notifications           Notification[]
-  notificationDeliveries  NotificationDelivery[]
-  pushSubscriptions       PushSubscription[]
-  publicationConsents     PublicationConsent[]
-  organizerOnboarding     OrganizerOnboarding?
-  consentRecords          OrganizationConsentRecord[]
-  invitations             OrganizationInvitation[]
-  subscription            OrganizationSubscription?
-  competitionEntitlements CompetitionEntitlement[]
-  usageCounters           UsageCounter[]
-  usageEvents             UsageEvent[]
-  subscriptionAudits      SubscriptionAudit[]
-  billingAccount          BillingAccount?
-  billingOrders           BillingOrder[]
-  invoices                Invoice[]
-  paymentAttempts         PaymentAttempt[]
-  paymentTransactions     PaymentTransaction[]
-  paymentEvents           PaymentEvent[]
-  refunds                 Refund[]
-  creditNotes             CreditNote[]
-  billingAudits           BillingAudit[]
-  reconciliationCases     ReconciliationCase[]
-  publicProfile           PublicOrganizerProfile?
-  competitionPublications CompetitionPublication[]
-  verification            OrganizerVerification?
-  abuseReports            AbuseReport[]
-  moderationAppeals       ModerationAppeal[]
-  competitionParticipants CompetitionParticipant[]
-  genericEntries          GenericCompetitionEntry[]
-  competitionSessions     CompetitionSession[]
-  scoringCriteria         ScoringCriterion[]
-  genericScoreEntries     GenericScoreEntry[]
-  genericResults          GenericResult[]
+  id                        String                      @id @default(cuid())
+  name                      String
+  slug                      String                      @unique
+  status                    OrganizationStatus          @default(PENDING)
+  logoUrl                   String?
+  contactEmail              String?
+  contactPhone              String?
+  address                   String?
+  ownerId                   String?
+  createdAt                 DateTime                    @default(now())
+  updatedAt                 DateTime                    @updatedAt
+  deletedAt                 DateTime?
+  memberships               OrganizationMember[]
+  roles                     Role[]
+  competitions              Competition[]
+  clubs                     Club[]
+  venues                    Venue[]
+  auditLogs                 AuditLog[]
+  owner                     User?                       @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  officials                 Official[]
+  competitionClubs          CompetitionClub[]
+  players                   Player[]
+  playerRegistrations       PlayerRegistration[]
+  playerDocuments           PlayerDocument[]
+  rosterEntries             RosterEntry[]
+  eligibilityChecks         EligibilityCheck[]
+  registrationHistory       RegistrationHistory[]
+  stages                    Stage[]
+  groups                    Group[]
+  groupMemberships          GroupMembership[]
+  fixtureGenerations        FixtureGeneration[]
+  fixtureDrafts             FixtureDraft[]
+  matches                   Match[]
+  matchAssignments          MatchOfficialAssignment[]
+  scheduleHistory           MatchScheduleHistory[]
+  bracketTies               BracketTie[]
+  bracketSlots              BracketSlot[]
+  fixturePublications       FixturePublication[]
+  matchLineups              MatchLineup[]
+  matchLineupPlayers        MatchLineupPlayer[]
+  matchEvents               MatchEvent[]
+  matchResults              MatchResult[]
+  matchApprovals            MatchApproval[]
+  matchCorrections          MatchCorrection[]
+  matchRealtimeOutbox       MatchRealtimeOutbox[]
+  bracketLegs               BracketLeg[]
+  statisticsSnapshots       StatisticsSnapshot[]
+  pointAdjustments          PointAdjustment[]
+  statisticsJobs            StatisticsRecomputeJob[]
+  statisticsRevisions       StatisticsRevision[]
+  transferWindows           TransferWindow[]
+  transferRequests          TransferRequest[]
+  transferApprovals         TransferApproval[]
+  transferHistory           TransferHistory[]
+  playerAvailability        PlayerAvailability[]
+  injuryCases               InjuryCase[]
+  disciplinaryCases         DisciplinaryCase[]
+  suspensions               Suspension[]
+  articles                  Article[]
+  articleRevisions          ArticleRevision[]
+  publicFollows             PublicFollow[]
+  notificationPreferences   NotificationPreference[]
+  notifications             Notification[]
+  notificationDeliveries    NotificationDelivery[]
+  pushSubscriptions         PushSubscription[]
+  publicationConsents       PublicationConsent[]
+  organizerOnboarding       OrganizerOnboarding?
+  consentRecords            OrganizationConsentRecord[]
+  invitations               OrganizationInvitation[]
+  subscription              OrganizationSubscription?
+  competitionEntitlements   CompetitionEntitlement[]
+  usageCounters             UsageCounter[]
+  usageEvents               UsageEvent[]
+  subscriptionAudits        SubscriptionAudit[]
+  billingAccount            BillingAccount?
+  billingOrders             BillingOrder[]
+  invoices                  Invoice[]
+  paymentAttempts           PaymentAttempt[]
+  paymentTransactions       PaymentTransaction[]
+  paymentEvents             PaymentEvent[]
+  refunds                   Refund[]
+  creditNotes               CreditNote[]
+  billingAudits             BillingAudit[]
+  reconciliationCases       ReconciliationCase[]
+  publicProfile             PublicOrganizerProfile?
+  competitionPublications   CompetitionPublication[]
+  verification              OrganizerVerification?
+  abuseReports              AbuseReport[]
+  moderationAppeals         ModerationAppeal[]
+  competitionParticipants   CompetitionParticipant[]
+  genericEntries            GenericCompetitionEntry[]
+  competitionSessions       CompetitionSession[]
+  scoringCriteria           ScoringCriterion[]
+  genericScoreEntries       GenericScoreEntry[]
+  genericResults            GenericResult[]
+  judgeAssignments          JudgeAssignment[]
+  resultApprovalWorkflows   ResultApprovalWorkflow[]
+  resultApprovalHistory     ResultApprovalHistory[]
+  publicRegistrations       PublicRegistration[]
+  publicRegistrationHistory PublicRegistrationHistory[]
 
   @@index([status, deletedAt])
   @@index([ownerId])
@@ -1623,6 +1673,9 @@ model Competition {
   genericSessions     CompetitionSession[]
   scoringCriteria     ScoringCriterion[]
   genericResults      GenericResult[]
+  judgeAssignments    JudgeAssignment[]
+  resultWorkflows     ResultApprovalWorkflow[]
+  publicRegistrations PublicRegistration[]
 
   @@unique([organizationId, slug])
   @@index([organizationId, status, deletedAt])
@@ -1692,6 +1745,7 @@ model Stage {
   statisticsSnapshots StatisticsSnapshot[]
   pointAdjustments    PointAdjustment[]
   genericSessions     CompetitionSession[]
+  judgeAssignments    JudgeAssignment[]
 
   @@unique([seasonId, sortOrder])
   @@index([organizationId, seasonId, type])
@@ -1764,66 +1818,73 @@ model CompetitionTemplate {
 }
 
 model CompetitionProfile {
-  id              String               @id @default(cuid())
-  competitionId   String               @unique
-  templateId      String?
-  kind            CompetitionKind
-  participantMode ParticipantMode
-  scoringMethod   ScoringMethod
-  config          Json                 @default("{}")
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
-  competition     Competition          @relation(fields: [competitionId], references: [id], onDelete: Cascade)
-  template        CompetitionTemplate? @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  id                        String               @id @default(cuid())
+  competitionId             String               @unique
+  templateId                String?
+  kind                      CompetitionKind
+  participantMode           ParticipantMode
+  scoringMethod             ScoringMethod
+  config                    Json                 @default("{}")
+  publicRegistrationEnabled Boolean              @default(false)
+  registrationOpensAt       DateTime?
+  registrationClosesAt      DateTime?
+  registrationQuota         Int?
+  registrationRequirements  Json                 @default("[]")
+  createdAt                 DateTime             @default(now())
+  updatedAt                 DateTime             @updatedAt
+  competition               Competition          @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  template                  CompetitionTemplate? @relation(fields: [templateId], references: [id], onDelete: Restrict)
 
   @@index([kind, scoringMethod])
 }
 
 model CompetitionParticipant {
-  id             String                    @id @default(cuid())
-  organizationId String
-  type           ParticipantType
-  name           String
-  slug           String
-  displayName    String?
-  logoUrl        String?
-  institution    String?
-  contactEmail   String?
-  contactPhone   String?
-  metadata       Json                      @default("{}")
-  isActive       Boolean                   @default(true)
-  createdAt      DateTime                  @default(now())
-  updatedAt      DateTime                  @updatedAt
-  deletedAt      DateTime?
-  organization   Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  entries        GenericCompetitionEntry[]
+  id                  String                    @id @default(cuid())
+  organizationId      String
+  type                ParticipantType
+  name                String
+  slug                String
+  displayName         String?
+  logoUrl             String?
+  institution         String?
+  contactEmail        String?
+  contactPhone        String?
+  metadata            Json                      @default("{}")
+  isActive            Boolean                   @default(true)
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  deletedAt           DateTime?
+  organization        Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  entries             GenericCompetitionEntry[]
+  sourceRegistrations PublicRegistration[]
 
   @@unique([organizationId, slug])
   @@index([organizationId, type, isActive, deletedAt])
 }
 
 model GenericCompetitionEntry {
-  id               String                    @id @default(cuid())
-  organizationId   String
-  competitionId    String
-  seasonId         String?
-  participantId    String
-  entryName        String?
-  status           GenericEntryStatus        @default(DRAFT)
-  seed             Int?
-  registrationData Json                      @default("{}")
-  idempotencyKey   String
-  submittedAt      DateTime?
-  approvedAt       DateTime?
-  createdAt        DateTime                  @default(now())
-  updatedAt        DateTime                  @updatedAt
-  organization     Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  competition      Competition               @relation(fields: [competitionId], references: [id], onDelete: Restrict)
-  season           Season?                   @relation(fields: [seasonId], references: [id], onDelete: Restrict)
-  participant      CompetitionParticipant    @relation(fields: [participantId], references: [id], onDelete: Restrict)
-  sessionEntries   CompetitionSessionEntry[]
-  scores           GenericScoreEntry[]
-  results          GenericResult[]
+  id                 String                    @id @default(cuid())
+  organizationId     String
+  competitionId      String
+  seasonId           String?
+  participantId      String
+  entryName          String?
+  status             GenericEntryStatus        @default(DRAFT)
+  seed               Int?
+  registrationData   Json                      @default("{}")
+  idempotencyKey     String
+  submittedAt        DateTime?
+  approvedAt         DateTime?
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+  organization       Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  competition        Competition               @relation(fields: [competitionId], references: [id], onDelete: Restrict)
+  season             Season?                   @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  participant        CompetitionParticipant    @relation(fields: [participantId], references: [id], onDelete: Restrict)
+  sessionEntries     CompetitionSessionEntry[]
+  scores             GenericScoreEntry[]
+  results            GenericResult[]
+  sourceRegistration PublicRegistration?
 
   @@unique([organizationId, idempotencyKey])
   @@unique([competitionId, seasonId, participantId])
@@ -1831,29 +1892,31 @@ model GenericCompetitionEntry {
 }
 
 model CompetitionSession {
-  id             String                    @id @default(cuid())
-  organizationId String
-  competitionId  String
-  seasonId       String?
-  stageId        String?
-  venueId        String?
-  name           String
-  sequence       Int
-  status         CompetitionSessionStatus  @default(DRAFT)
-  startsAt       DateTime?
-  endsAt         DateTime?
-  config         Json                      @default("{}")
-  publishedAt    DateTime?
-  createdAt      DateTime                  @default(now())
-  updatedAt      DateTime                  @updatedAt
-  organization   Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  competition    Competition               @relation(fields: [competitionId], references: [id], onDelete: Restrict)
-  season         Season?                   @relation(fields: [seasonId], references: [id], onDelete: Restrict)
-  stage          Stage?                    @relation(fields: [stageId], references: [id], onDelete: Restrict)
-  venue          Venue?                    @relation(fields: [venueId], references: [id], onDelete: SetNull)
-  entries        CompetitionSessionEntry[]
-  scores         GenericScoreEntry[]
-  results        GenericResult[]
+  id               String                    @id @default(cuid())
+  organizationId   String
+  competitionId    String
+  seasonId         String?
+  stageId          String?
+  venueId          String?
+  name             String
+  sequence         Int
+  status           CompetitionSessionStatus  @default(DRAFT)
+  startsAt         DateTime?
+  endsAt           DateTime?
+  config           Json                      @default("{}")
+  publishedAt      DateTime?
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  organization     Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  competition      Competition               @relation(fields: [competitionId], references: [id], onDelete: Restrict)
+  season           Season?                   @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  stage            Stage?                    @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  venue            Venue?                    @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  entries          CompetitionSessionEntry[]
+  scores           GenericScoreEntry[]
+  results          GenericResult[]
+  judgeAssignments JudgeAssignment[]
+  resultWorkflows  ResultApprovalWorkflow[]
 
   @@unique([competitionId, sequence])
   @@index([organizationId, competitionId, status, startsAt])
@@ -1935,6 +1998,154 @@ model GenericResult {
 
   @@unique([competitionId, scopeKey, entryId])
   @@index([organizationId, competitionId, status, rank])
+}
+
+model JudgeAssignment {
+  id               String                @id @default(cuid())
+  organizationId   String
+  competitionId    String
+  sessionId        String?
+  stageId          String?
+  judgeId          String
+  assignedById     String
+  revokedById      String?
+  status           JudgeAssignmentStatus @default(ACTIVE)
+  validFrom        DateTime              @default(now())
+  validUntil       DateTime?
+  conflictDeclared Boolean               @default(false)
+  conflictNotes    String?
+  idempotencyKey   String
+  revokedAt        DateTime?
+  revokeReason     String?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  organization     Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  competition      Competition           @relation(fields: [competitionId], references: [id], onDelete: Restrict)
+  session          CompetitionSession?   @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  stage            Stage?                @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  judge            User                  @relation("AssignedJudge", fields: [judgeId], references: [id], onDelete: Restrict)
+  assignedBy       User                  @relation("JudgeAssignmentCreator", fields: [assignedById], references: [id], onDelete: Restrict)
+  revokedBy        User?                 @relation("JudgeAssignmentRevoker", fields: [revokedById], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, competitionId, status, validUntil], map: "JudgeAssignment_organizationId_competitionId_status_validUn_idx")
+  @@index([judgeId, status, validFrom, validUntil])
+  @@index([sessionId, judgeId, status])
+}
+
+model ResultApprovalWorkflow {
+  id             String                  @id @default(cuid())
+  organizationId String
+  competitionId  String
+  sessionId      String?
+  scopeKey       String                  @default("competition")
+  status         ResultWorkflowStatus    @default(DRAFT)
+  version        Int                     @default(1)
+  submittedById  String?
+  submittedAt    DateTime?
+  reviewedById   String?
+  reviewedAt     DateTime?
+  reviewNotes    String?
+  approvedById   String?
+  approvedAt     DateTime?
+  publishedById  String?
+  publishedAt    DateTime?
+  reopenedById   String?
+  reopenedAt     DateTime?
+  reopenReason   String?
+  lockedAt       DateTime?
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  competition    Competition             @relation(fields: [competitionId], references: [id], onDelete: Restrict)
+  session        CompetitionSession?     @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  submittedBy    User?                   @relation("ResultSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
+  reviewedBy     User?                   @relation("ResultReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  approvedBy     User?                   @relation("ResultApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  publishedBy    User?                   @relation("ResultPublisher", fields: [publishedById], references: [id], onDelete: SetNull)
+  reopenedBy     User?                   @relation("ResultReopener", fields: [reopenedById], references: [id], onDelete: SetNull)
+  history        ResultApprovalHistory[]
+
+  @@unique([competitionId, scopeKey])
+  @@index([organizationId, status, updatedAt])
+  @@index([sessionId, status])
+}
+
+model ResultApprovalHistory {
+  id             String                 @id @default(cuid())
+  organizationId String
+  workflowId     String
+  actorId        String
+  fromStatus     ResultWorkflowStatus?
+  toStatus       ResultWorkflowStatus
+  action         String
+  reason         String?
+  snapshot       Json                   @default("{}")
+  createdAt      DateTime               @default(now())
+  organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  workflow       ResultApprovalWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  actor          User                   @relation("ResultHistoryActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, workflowId, createdAt])
+  @@index([actorId, createdAt])
+}
+
+model PublicRegistration {
+  id                    String                      @id @default(cuid())
+  organizationId        String
+  competitionId         String
+  participantType       ParticipantType
+  registrationNumber    String                      @unique
+  status                PublicRegistrationStatus    @default(SUBMITTED)
+  participantName       String
+  institution           String?
+  contactEmail          String
+  contactPhone          String?
+  teamData              Json                        @default("{}")
+  formData              Json                        @default("{}")
+  documents             Json                        @default("[]")
+  tokenHash             String                      @unique
+  idempotencyKey        String
+  dedupeKey             String
+  submittedAt           DateTime                    @default(now())
+  reviewedById          String?
+  reviewedAt            DateTime?
+  revisionReason        String?
+  rejectionReason       String?
+  approvedParticipantId String?
+  approvedEntryId       String?                     @unique
+  createdAt             DateTime                    @default(now())
+  updatedAt             DateTime                    @updatedAt
+  organization          Organization                @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  competition           Competition                 @relation(fields: [competitionId], references: [id], onDelete: Restrict)
+  reviewedBy            User?                       @relation("PublicRegistrationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  approvedParticipant   CompetitionParticipant?     @relation(fields: [approvedParticipantId], references: [id], onDelete: SetNull)
+  approvedEntry         GenericCompetitionEntry?    @relation(fields: [approvedEntryId], references: [id], onDelete: SetNull)
+  history               PublicRegistrationHistory[]
+
+  @@unique([organizationId, competitionId, idempotencyKey], map: "PublicRegistration_organizationId_competitionId_idempotency_key")
+  @@unique([competitionId, dedupeKey])
+  @@index([organizationId, competitionId, status, submittedAt], map: "PublicRegistration_organizationId_competitionId_status_subm_idx")
+  @@index([contactEmail, competitionId, status])
+}
+
+model PublicRegistrationHistory {
+  id             String                    @id @default(cuid())
+  organizationId String
+  registrationId String
+  actorId        String?
+  action         RegistrationReviewAction
+  fromStatus     PublicRegistrationStatus?
+  toStatus       PublicRegistrationStatus
+  reason         String?
+  metadata       Json                      @default("{}")
+  createdAt      DateTime                  @default(now())
+  organization   Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  registration   PublicRegistration        @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  actor          User?                     @relation("RegistrationHistoryActor21", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, registrationId, createdAt], map: "PublicRegistrationHistory_organizationId_registrationId_cre_idx")
+  @@index([actorId, createdAt])
 }
 
 model Club {

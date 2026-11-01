@@ -4,8 +4,9 @@ import { db, rootDb } from "@/lib/db";
 import { withMembershipDatabase, withTenantDatabase } from "@/lib/tenant-db";
 import { commitQuotaInCurrentTransaction, evaluateEntitlement, reserveQuotaInCurrentTransaction } from "@/modules/phase14/service";
 import { templateDefinition } from "./catalog";
-import { calculateRanking } from "./scoring";
 import { criterionSchema, entrySchema, genericCompetitionSchema, participantSchema, scoreSchema, sessionSchema } from "./validation";
+import { assertActiveJudgeAssignment } from "@/modules/phase21/access";
+import { submitResultsForApproval } from "@/modules/phase21/service";
 
 function json(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
@@ -184,6 +185,7 @@ export async function recordGenericScore(actor: ApiActor, raw: unknown) {
     await authorizeOrganization(actor, input.organizationId, "generic_scoring.manage");
     const session = await db.competitionSession.findFirst({ where: { id: input.sessionId, organizationId: input.organizationId }, include: { entries: { where: { entryId: input.entryId } } } });
     if (!session || !session.entries.length) throw new ApiError(422, "Peserta tidak terdaftar pada sesi ini.");
+    await assertActiveJudgeAssignment(actor.id, input.organizationId, input.sessionId);
     const criterion = input.criterionId ? await db.scoringCriterion.findFirst({ where: { id: input.criterionId, organizationId: input.organizationId, competitionId: session.competitionId } }) : null;
     if (input.criterionId && !criterion) throw new ApiError(422, "Kriteria penilaian tidak valid.");
     if (criterion?.maxScore != null && input.score > criterion.maxScore) throw new ApiError(422, `Nilai melebihi maksimum ${criterion.maxScore}.`);
@@ -198,30 +200,6 @@ export async function recordGenericScore(actor: ApiActor, raw: unknown) {
 }
 
 export async function publishGenericResults(actor: ApiActor, raw: { organizationId: string; competitionId: string; sessionId?: string }) {
-  return withTenantDatabase(rootDb, raw.organizationId, async () => {
-    await authorizeOrganization(actor, raw.organizationId, "generic_scoring.manage");
-    const competition = await db.competition.findFirst({ where: { id: raw.competitionId, organizationId: raw.organizationId, deletedAt: null }, include: { genericProfile: true } });
-    if (!competition?.genericProfile) throw new ApiError(422, "Kompetisi generik tidak ditemukan.");
-    const scores = await db.genericScoreEntry.findMany({
-      where: { organizationId: raw.organizationId, session: { competitionId: raw.competitionId, ...(raw.sessionId ? { id: raw.sessionId } : {}) }, status: { in: ["SUBMITTED", "VERIFIED", "PUBLISHED"] } },
-      include: { criterion: { select: { weight: true } } },
-    });
-    if (!scores.length) throw new ApiError(409, "Belum ada nilai yang dapat dipublikasikan.");
-    const ranking = calculateRanking(scores.map((score) => ({ entryId: score.entryId, score: score.score, penalty: score.penalty, weight: score.criterion?.weight })));
-    const now = new Date();
-    const scopeKey = raw.sessionId ?? "competition";
-    await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`phase19:result:${raw.organizationId}:${raw.competitionId}:${scopeKey}`}))`;
-    await db.genericResult.deleteMany({ where: { organizationId: raw.organizationId, competitionId: raw.competitionId, sessionId: raw.sessionId ?? null, status: { not: "PUBLISHED" } } });
-    for (const result of ranking) {
-      await db.genericResult.upsert({
-        where: { competitionId_scopeKey_entryId: { competitionId: raw.competitionId, scopeKey, entryId: result.entryId } },
-        update: { rank: result.rank, totalScore: result.totalScore, status: "PUBLISHED", publishedAt: now },
-        create: { organizationId: raw.organizationId, competitionId: raw.competitionId, sessionId: raw.sessionId, scopeKey, entryId: result.entryId, rank: result.rank, totalScore: result.totalScore, status: "PUBLISHED", publishedAt: now },
-      });
-    }
-    await db.genericScoreEntry.updateMany({ where: { organizationId: raw.organizationId, session: { competitionId: raw.competitionId, ...(raw.sessionId ? { id: raw.sessionId } : {}) }, status: { in: ["SUBMITTED", "VERIFIED"] } }, data: { status: "PUBLISHED" } });
-    if (raw.sessionId) await db.competitionSession.updateMany({ where: { id: raw.sessionId, organizationId: raw.organizationId, competitionId: raw.competitionId }, data: { status: "COMPLETED", publishedAt: now } });
-    await audit(actor, raw.organizationId, "APPROVE", "GENERIC_RESULT", raw.sessionId ?? raw.competitionId, { entries: ranking.length });
-    return ranking;
-  });
+  const submitted = await submitResultsForApproval(actor, raw.organizationId, raw.competitionId, raw.sessionId);
+  return submitted.ranking;
 }

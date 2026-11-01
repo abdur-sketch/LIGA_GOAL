@@ -12,7 +12,8 @@ type AccessMode =
   | "identity"
   | "membership"
   | "provisioning"
-  | "invitation";
+  | "invitation"
+  | "registration";
 
 async function setContext(
   tx: Prisma.TransactionClient,
@@ -21,12 +22,14 @@ async function setContext(
   accessMode: AccessMode,
   userId = "",
   invitationTokenHash = "",
+  registrationTokenHash = "",
 ) {
   await tx.$executeRaw`SELECT set_config('app.current_organization_id', ${organizationId}, true)`;
   await tx.$executeRaw`SELECT set_config('app.current_user_id', ${userId}, true)`;
   await tx.$executeRaw`SELECT set_config('app.platform_admin', ${platformAdmin ? "true" : "false"}, true)`;
   await tx.$executeRaw`SELECT set_config('app.access_mode', ${accessMode}, true)`;
   await tx.$executeRaw`SELECT set_config('app.current_invitation_token_hash', ${invitationTokenHash}, true)`;
+  await tx.$executeRaw`SELECT set_config('app.current_registration_token_hash', ${registrationTokenHash}, true)`;
 }
 
 type TransactionOptions = { maxWait?: number; timeout?: number };
@@ -92,8 +95,12 @@ export function withActorDatabase<T>(
   // Even platform administrators are tenant-scoped when an organization was
   // selected. Cross-tenant/platform scope is reserved for explicit entrypoints
   // that can be separately authorized and audited.
-  void actor;
-  return withTenantDatabase(rootDb, organizationId, async () => callback());
+  if (!tenantPattern.test(organizationId) || !tenantPattern.test(actor.id))
+    throw new Error("Actor atau tenant context tidak valid.");
+  return rootDb.$transaction(async (tx) => {
+    await setContext(tx, organizationId, false, "tenant", actor.id);
+    return runWithDatabaseTransaction(tx, callback);
+  });
 }
 
 /** Only audited public DAL functions may be called from this scope. */
@@ -151,6 +158,20 @@ export function withInvitationDatabase<T>(
     throw new Error("Invitation context tidak valid.");
   return client.$transaction(async (tx) => {
     await setContext(tx, "", false, "invitation", userId, tokenHash);
+    return runWithDatabaseTransaction(tx, callback);
+  });
+}
+
+/** Reads one public registration through its high-entropy capability token. */
+export function withRegistrationDatabase<T>(
+  tokenHash: string,
+  callback: () => Promise<T>,
+  client = rootDb,
+) {
+  if (!tokenDigestPattern.test(tokenHash))
+    throw new Error("Registration token context tidak valid.");
+  return client.$transaction(async (tx) => {
+    await setContext(tx, "", false, "registration", "", "", tokenHash);
     return runWithDatabaseTransaction(tx, callback);
   });
 }
