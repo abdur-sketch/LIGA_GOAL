@@ -25,4 +25,9 @@ describe("Phase 21 validation", () => {
   it("rejects a registration window that closes before it opens", () => {
     expect(registrationConfigSchema.safeParse({ organizationId: "org", competitionId: "comp", enabled: true, opensAt: "2026-11-02", closesAt: "2026-11-01", requirements: [] }).success).toBe(false);
   });
+
+  it("accepts only a safe public registration slug", () => {
+    expect(registrationConfigSchema.safeParse({ organizationId: "org", competitionId: "comp", publicSlug: "lct-kabupaten-2026", enabled: true, requirements: [] }).success).toBe(true);
+    expect(registrationConfigSchema.safeParse({ organizationId: "org", competitionId: "comp", publicSlug: "../Rahasia", enabled: true, requirements: [] }).success).toBe(false);
+  });
 });

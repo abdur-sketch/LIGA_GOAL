@@ -7,7 +7,7 @@ import { withPublicDatabase, withRegistrationDatabase, withTenantDatabase } from
 import { genericLabels } from "@/modules/phase19/catalog";
 import { calculateRanking } from "@/modules/phase19/scoring";
 import { assertActiveJudgeAssignment } from "./access";
-import { judgeAssignmentSchema, publicRegistrationSchema, registrationConfigSchema, registrationReviewSchema, registrationStatusSchema, resultWorkflowSchema } from "./validation";
+import { judgeAssignmentSchema, publicRegistrationSchema, registrationConfigSchema, registrationDocumentSchema, registrationReviewSchema, registrationStatusSchema, resultWorkflowSchema } from "./validation";
 
 function json(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
@@ -35,15 +35,63 @@ export async function configurePublicRegistration(actor: ApiActor, raw: unknown)
   const input = registrationConfigSchema.parse(raw);
   return withTenantDatabase(rootDb, input.organizationId, async () => {
     await authorizeOrganization(actor, input.organizationId, "competition.update");
-    const competition = await db.competition.findFirst({ where: { id: input.competitionId, organizationId: input.organizationId, deletedAt: null }, include: { genericProfile: true } });
+    const competition = await db.competition.findFirst({ where: { id: input.competitionId, organizationId: input.organizationId, deletedAt: null }, include: { genericProfile: true, publication: true } });
     if (!competition?.genericProfile) throw new ApiError(404, "Kompetisi multi-lomba tidak ditemukan.");
+    if (input.enabled && !competition.publication && !input.publicSlug) throw new ApiError(422, "Slug publik wajib diisi saat pendaftaran pertama kali diaktifkan.");
     const profile = await db.competitionProfile.update({
       where: { competitionId: competition.id },
       data: { publicRegistrationEnabled: input.enabled, registrationOpensAt: input.opensAt, registrationClosesAt: input.closesAt, registrationQuota: input.quota, registrationRequirements: input.requirements },
     });
-    if (input.enabled && competition.status === "DRAFT") await db.competition.update({ where: { id: competition.id }, data: { status: "REGISTRATION" } });
+    if (input.enabled) {
+      const publishedAt = new Date();
+      await db.competitionPublication.upsert({
+        where: { competitionId: competition.id },
+        update: { ...(input.publicSlug ? { publicSlug: input.publicSlug } : {}), status: "PUBLISHED", publishedAt },
+        create: { organizationId: input.organizationId, competitionId: competition.id, publicSlug: input.publicSlug!, status: "PUBLISHED", publishedAt },
+      });
+      if (competition.status === "DRAFT") await db.competition.update({ where: { id: competition.id }, data: { status: "REGISTRATION" } });
+    }
     await audit(actor.id, input.organizationId, "UPDATE", "PUBLIC_REGISTRATION_CONFIG", competition.id, input);
-    return profile;
+    const publication = await db.competitionPublication.findUnique({ where: { competitionId: competition.id }, select: { publicSlug: true, status: true } });
+    return { ...profile, publication };
+  });
+}
+
+function registrationDocuments(value: Prisma.JsonValue) {
+  const parsed = registrationDocumentSchema.array().max(10).safeParse(value);
+  return parsed.success ? parsed.data : [];
+}
+
+export async function getPublicRegistrationReviewDetail(actor: ApiActor, organizationId: string, registrationId: string) {
+  return withTenantDatabase(rootDb, organizationId, async () => {
+    await authorizeOrganization(actor, organizationId, "registration.public.view");
+    const registration = await db.publicRegistration.findFirst({
+      where: { id: registrationId, organizationId },
+      select: {
+        id: true, registrationNumber: true, status: true, participantName: true, participantType: true, institution: true,
+        contactEmail: true, contactPhone: true, teamData: true, formData: true, documents: true, privacyVersion: true,
+        processingConsentAt: true, processingContext: true, isMinor: true, guardianName: true, guardianContact: true,
+        guardianConsentAt: true, retentionUntil: true, submittedAt: true, reviewedAt: true, revisionReason: true,
+        rejectionReason: true, competition: { select: { id: true, name: true, genericProfile: { select: { registrationRequirements: true } } } },
+        history: { select: { action: true, fromStatus: true, toStatus: true, reason: true, createdAt: true, actor: { select: { name: true } } }, orderBy: { createdAt: "asc" } },
+      },
+    });
+    if (!registration) throw new ApiError(404, "Pendaftaran tidak ditemukan.");
+    const documents = registrationDocuments(registration.documents).map((document, index) => ({ index, originalName: document.originalName, mimeType: document.mimeType, sizeBytes: document.sizeBytes }));
+    await db.sensitiveDataAccessLog.create({ data: { organizationId, actorId: actor.id, resourceType: "PublicRegistration", resourceId: registration.id, purpose: "Registration administration verification", fieldSet: ["contactEmail", "contactPhone", "teamData", "formData", "documents", "guardianData"] } });
+    return { ...registration, documents };
+  });
+}
+
+export async function getPublicRegistrationDocument(actor: ApiActor, organizationId: string, registrationId: string, documentIndex: number) {
+  return withTenantDatabase(rootDb, organizationId, async () => {
+    await authorizeOrganization(actor, organizationId, "registration.public.view");
+    const registration = await db.publicRegistration.findFirst({ where: { id: registrationId, organizationId }, select: { id: true, documents: true } });
+    if (!registration) throw new ApiError(404, "Pendaftaran tidak ditemukan.");
+    const document = registrationDocuments(registration.documents)[documentIndex];
+    if (!document) throw new ApiError(404, "Dokumen pendaftaran tidak ditemukan.");
+    await db.sensitiveDataAccessLog.create({ data: { organizationId, actorId: actor.id, resourceType: "PublicRegistrationDocument", resourceId: registration.id, purpose: "Registration document verification", fieldSet: ["documents"] } });
+    return document;
   });
 }
 
@@ -187,10 +235,12 @@ export async function submitResultsForApproval(actor: ApiActor, organizationId: 
     await authorizeOrganization(actor, organizationId, "result.workflow.submit");
     if (!sessionId) throw new ApiError(422, "Sesi wajib dipilih untuk workflow hasil.");
     await assertActiveJudgeAssignment(actor.id, organizationId, sessionId);
-    const session = await db.competitionSession.findFirst({ where: { id: sessionId, organizationId, competitionId }, select: { id: true } });
+    const session = await db.competitionSession.findFirst({ where: { id: sessionId, organizationId, competitionId }, select: { id: true, entries: { select: { entryId: true } } } });
     if (!session) throw new ApiError(404, "Sesi tidak ditemukan.");
     const scores = await db.genericScoreEntry.findMany({ where: { organizationId, sessionId, status: { in: ["SUBMITTED", "VERIFIED"] } }, include: { criterion: { select: { weight: true } } } });
     if (!scores.length) throw new ApiError(409, "Belum ada nilai yang dapat diajukan.");
+    const scoredEntryIds = new Set(scores.map((score) => score.entryId));
+    if (session.entries.some((entry) => !scoredEntryIds.has(entry.entryId))) throw new ApiError(409, "Semua peserta sesi harus memiliki nilai sebelum hasil diajukan.");
     const ranking = calculateRanking(scores.map((score) => ({ entryId: score.entryId, score: score.score, penalty: score.penalty, weight: score.criterion?.weight })));
     await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`phase21:workflow:${organizationId}:${competitionId}:${sessionId}`}))`;
     const existing = await db.resultApprovalWorkflow.findUnique({ where: { competitionId_scopeKey: { competitionId, scopeKey: sessionId } } });
@@ -274,16 +324,16 @@ export async function getOrganizerOperations(actor: ApiActor, organizationId: st
       db.resultApprovalWorkflow.findMany({ where: { organizationId }, select: { id: true, status: true, version: true, updatedAt: true, competition: { select: { id: true, name: true } }, session: { select: { id: true, name: true } }, submittedBy: { select: { name: true } }, reviewedBy: { select: { name: true } }, approvedBy: { select: { name: true } } }, orderBy: { updatedAt: "desc" }, take: 50 }),
       db.organizationMember.findMany({ where: { organizationId, isActive: true }, select: { user: { select: { id: true, name: true, email: true } }, role: { select: { key: true, name: true } } }, orderBy: { createdAt: "asc" } }),
       db.auditLog.findMany({ where: { organizationId, resourceType: { in: ["JUDGE_ASSIGNMENT", "PUBLIC_REGISTRATION", "RESULT_APPROVAL_WORKFLOW", "GENERIC_SCORE"] } }, select: { id: true, action: true, resourceType: true, resourceId: true, createdAt: true, actor: { select: { name: true } } }, orderBy: { createdAt: "desc" }, take: 20 }),
-      db.competition.findMany({ where: { organizationId, deletedAt: null, genericProfile: { isNot: null } }, select: { id: true, name: true, genericProfile: { select: { publicRegistrationEnabled: true, registrationOpensAt: true, registrationClosesAt: true, registrationQuota: true } }, genericSessions: { select: { id: true, name: true, status: true }, orderBy: { sequence: "asc" } } }, orderBy: { createdAt: "desc" } }),
+      db.competition.findMany({ where: { organizationId, deletedAt: null, genericProfile: { isNot: null } }, select: { id: true, name: true, publication: { select: { publicSlug: true, status: true } }, genericProfile: { select: { publicRegistrationEnabled: true, registrationOpensAt: true, registrationClosesAt: true, registrationQuota: true } }, genericSessions: { select: { id: true, name: true, status: true }, orderBy: { sequence: "asc" } } }, orderBy: { createdAt: "desc" } }),
     ]);
     const securityWarnings = [
       ...assignments.filter((item) => item.conflictDeclared).map((item) => `Konflik kepentingan: ${item.judge.name}`),
       ...assignments.filter((item) => item.status === "ACTIVE" && item.validUntil && item.validUntil <= now).map((item) => `Penugasan kedaluwarsa: ${item.judge.name}`),
     ];
-    if (registrations.length && permissions.has("privacy.request.view")) {
+    if (registrations.length && permissions.has("registration.public.view")) {
       await db.sensitiveDataAccessLog.create({ data: { organizationId, actorId: actor.id, resourceType: "PublicRegistrationQueue", purpose: "Organizer registration verification queue", fieldSet: ["participantName", "participantType", "institution", "status"] } });
     }
-    return { metrics: { competitions, participants, pendingRegistrations, liveSessions, incompleteScores, pendingResults, publishedResults, activeJudges: assignments.filter((item) => item.status === "ACTIVE" && (!item.validUntil || item.validUntil > now)).length }, assignments, registrations, workflows, members, audits, competitionOptions, securityWarnings, capabilities: Object.fromEntries(["judge.assignment.manage", "registration.public.review", "result.workflow.review", "result.workflow.approve", "result.workflow.publish", "result.workflow.reopen"].map((key) => [key, permissions.has(key)])) };
+    return { metrics: { competitions, participants, pendingRegistrations, liveSessions, incompleteScores, pendingResults, publishedResults, activeJudges: assignments.filter((item) => item.status === "ACTIVE" && (!item.validUntil || item.validUntil > now)).length }, assignments, registrations, workflows, members, audits, competitionOptions, securityWarnings, capabilities: Object.fromEntries(["judge.assignment.manage", "registration.public.view", "registration.public.review", "result.workflow.review", "result.workflow.approve", "result.workflow.publish", "result.workflow.reopen"].map((key) => [key, permissions.has(key)])) };
   });
 }
 

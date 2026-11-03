@@ -4,6 +4,7 @@ const id = z.string().trim().min(1).max(96);
 const optionalId = z.preprocess((value) => value === "" ? undefined : value, id.optional());
 const optionalText = (max: number) => z.preprocess((value) => value === "" ? undefined : value, z.string().trim().max(max).optional());
 const optionalDate = z.preprocess((value) => value === "" || value == null ? undefined : value, z.coerce.date().optional());
+const publicSlug = z.string().trim().toLowerCase().min(2).max(160).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 export const PUBLIC_REGISTRATION_PRIVACY_VERSION = "phase22-draft-2026-11-01";
 
 export const judgeAssignmentSchema = z.object({
@@ -24,6 +25,7 @@ export const registrationConfigSchema = z.object({
   organizationId: id,
   competitionId: id,
   enabled: z.coerce.boolean(),
+  publicSlug: z.preprocess((value) => value === "" ? undefined : value, publicSlug.optional()),
   opensAt: optionalDate,
   closesAt: optionalDate,
   quota: z.preprocess((value) => value === "" || value == null ? undefined : value, z.coerce.number().int().positive().max(1_000_000).optional()),
@@ -31,7 +33,7 @@ export const registrationConfigSchema = z.object({
 }).strict().refine((value) => !value.opensAt || !value.closesAt || value.closesAt >= value.opensAt, { path: ["closesAt"], message: "Periode pendaftaran tidak valid." });
 
 const safeJson = z.record(z.string(), z.union([z.string().max(2_000), z.number(), z.boolean(), z.null()])).default({});
-const documentSchema = z.object({
+export const registrationDocumentSchema = z.object({
   storageKey: z.string().regex(/^[a-zA-Z0-9_-]+\/[a-f0-9-]+\.(pdf|jpg|png|webp)$/),
   originalName: z.string().trim().min(1).max(240),
   mimeType: z.enum(["application/pdf", "image/jpeg", "image/png", "image/webp"]),
@@ -47,7 +49,7 @@ export const publicRegistrationSchema = z.object({
   contactPhone: optionalText(40),
   teamData: safeJson,
   formData: safeJson,
-  documents: z.array(documentSchema).max(10).default([]),
+  documents: z.array(registrationDocumentSchema).max(10).default([]),
   idempotencyKey: z.string().trim().regex(/^[A-Za-z0-9:_-]{12,160}$/),
   privacyAccepted: z.literal(true),
   privacyVersion: z.literal(PUBLIC_REGISTRATION_PRIVACY_VERSION),

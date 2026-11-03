@@ -185,16 +185,38 @@ export async function recordGenericScore(actor: ApiActor, raw: unknown) {
     await authorizeOrganization(actor, input.organizationId, "generic_scoring.manage");
     const session = await db.competitionSession.findFirst({ where: { id: input.sessionId, organizationId: input.organizationId }, include: { entries: { where: { entryId: input.entryId } } } });
     if (!session || !session.entries.length) throw new ApiError(422, "Peserta tidak terdaftar pada sesi ini.");
+    if (!["SCHEDULED", "LIVE"].includes(session.status)) throw new ApiError(409, "Nilai hanya dapat dimasukkan pada sesi terjadwal atau sedang berlangsung.");
     await assertActiveJudgeAssignment(actor.id, input.organizationId, input.sessionId);
     const criterion = input.criterionId ? await db.scoringCriterion.findFirst({ where: { id: input.criterionId, organizationId: input.organizationId, competitionId: session.competitionId } }) : null;
     if (input.criterionId && !criterion) throw new ApiError(422, "Kriteria penilaian tidak valid.");
     if (criterion?.maxScore != null && input.score > criterion.maxScore) throw new ApiError(422, `Nilai melebihi maksimum ${criterion.maxScore}.`);
-    const score = await db.genericScoreEntry.upsert({
-      where: { organizationId_idempotencyKey: { organizationId: input.organizationId, idempotencyKey: input.idempotencyKey } },
-      update: {},
-      create: { ...input, judgeId: actor.id, status: "SUBMITTED" },
+    await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`phase19:score-request:${input.organizationId}:${input.idempotencyKey}`}))`;
+    const replay = await db.genericScoreEntry.findUnique({ where: { organizationId_idempotencyKey: { organizationId: input.organizationId, idempotencyKey: input.idempotencyKey } } });
+    if (replay) return replay;
+
+    await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`phase19:score:${input.organizationId}:${input.sessionId}:${input.entryId}:${input.criterionId ?? "overall"}:${actor.id}`}))`;
+    const correctionReplay = await db.auditLog.findFirst({
+      where: { organizationId: input.organizationId, resourceType: "GENERIC_SCORE", actorId: actor.id, after: { path: ["idempotencyKey"], equals: input.idempotencyKey } },
+      select: { resourceId: true },
     });
-    await audit(actor, input.organizationId, "CREATE", "GENERIC_SCORE", score.id, { sessionId: input.sessionId, entryId: input.entryId });
+    if (correctionReplay?.resourceId) {
+      const previousResponse = await db.genericScoreEntry.findFirst({ where: { id: correctionReplay.resourceId, organizationId: input.organizationId } });
+      if (previousResponse) return previousResponse;
+    }
+    const existing = await db.genericScoreEntry.findFirst({
+      where: { organizationId: input.organizationId, sessionId: input.sessionId, entryId: input.entryId, ...(input.criterionId ? { criterionId: input.criterionId } : { criterion: { is: null } }), judgeId: actor.id },
+    });
+    if (existing && !["DRAFT", "SUBMITTED"].includes(existing.status)) throw new ApiError(409, "Nilai telah dikunci dan hanya dapat diubah setelah hasil dibuka kembali.");
+    const score = existing
+      ? await db.genericScoreEntry.update({ where: { id: existing.id }, data: { score: input.score, penalty: input.penalty, notes: input.notes, status: "SUBMITTED" } })
+      : await db.genericScoreEntry.create({ data: { ...input, judgeId: actor.id, status: "SUBMITTED" } });
+    await audit(actor, input.organizationId, existing ? "UPDATE" : "CREATE", "GENERIC_SCORE", score.id, {
+      sessionId: input.sessionId,
+      entryId: input.entryId,
+      criterionId: input.criterionId ?? null,
+      idempotencyKey: input.idempotencyKey,
+      ...(existing ? { previous: { score: existing.score, penalty: existing.penalty }, current: { score: score.score, penalty: score.penalty } } : {}),
+    });
     return score;
   });
 }

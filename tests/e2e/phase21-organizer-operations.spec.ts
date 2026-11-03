@@ -16,6 +16,8 @@ test("organizer operations dashboard renders protected pilot controls", async ({
   await expect(page.getByRole("heading", { name: "Juri, pendaftaran & persetujuan hasil" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Penugasan juri" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Pendaftaran publik" })).toBeVisible();
+  await expect(page.getByLabel("Slug publik")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Antrean verifikasi" })).toBeVisible();
+  await expect(page.getByText(/Akses kontak, wali, dan dokumen dicatat/)).toBeVisible();
   await expect(page.getByRole("heading", { name: "Workflow hasil" })).toBeVisible();
 });

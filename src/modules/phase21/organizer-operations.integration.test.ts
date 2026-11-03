@@ -4,7 +4,7 @@ import type { ApiActor } from "@/lib/auth/api";
 import { db } from "@/lib/db";
 import { withRegistrationDatabase, withTenantDatabase } from "@/lib/tenant-db";
 import { recordGenericScore } from "@/modules/phase19/service";
-import { assignJudge, getOrganizerOperations, publicRegistrationStatus, reviewPublicRegistration, revokeJudgeAssignment, submitPublicRegistration, submitResultsForApproval, transitionResultWorkflow } from "./service";
+import { assignJudge, configurePublicRegistration, getOrganizerOperations, getPublicRegistrationReviewDetail, publicRegistrationStatus, reviewPublicRegistration, revokeJudgeAssignment, submitPublicRegistration, submitResultsForApproval, transitionResultWorkflow } from "./service";
 import { retentionPreview, submitPrivacyRequest } from "@/modules/phase22/service";
 
 const ownerUrl = process.env.RLS_OWNER_DATABASE_URL;
@@ -29,13 +29,13 @@ describe.skipIf(!owner || !runtime).sequential("Phase 21 organizer operations an
       owner!.organization.create({ data: { name: "P21 Other Tenant", slug: `p21-other-${suffix}`, status: "ACTIVE", ownerId: outsiderId, contactEmail: users[3].email } }),
     ]);
     organizationId = organization.id; otherOrganizationId = otherOrganization.id;
-    const permissionKeys = ["competition.view", "generic_scoring.manage", "judge.assignment.view", "judge.assignment.manage", "registration.public.view", "registration.public.review", "privacy.request.view", "privacy.request.manage", "result.workflow.submit", "result.workflow.review", "result.workflow.approve", "result.workflow.publish", "result.workflow.reopen"];
+    const permissionKeys = ["competition.view", "competition.update", "generic_scoring.manage", "judge.assignment.view", "judge.assignment.manage", "registration.public.view", "registration.public.review", "privacy.request.view", "privacy.request.manage", "result.workflow.submit", "result.workflow.review", "result.workflow.approve", "result.workflow.publish", "result.workflow.reopen"];
     await Promise.all(permissionKeys.map((key) => owner!.permission.upsert({ where: { key }, update: {}, create: { key, description: `Phase 21 synthetic permission: ${key}` } })));
     const permissions = await owner!.permission.findMany({ where: { key: { in: permissionKeys } } });
     expect(permissions).toHaveLength(permissionKeys.length);
     const roleFor = async (name: string, keys: string[]) => owner!.role.create({ data: { organizationId, name, key: `p21-${name.toLowerCase()}-${suffix}`, permissions: { create: permissions.filter((permission) => keys.includes(permission.key)).map((permission) => ({ permissionId: permission.id })) } } });
     const [organizerRole, reviewerRole, approverRole] = await Promise.all([
-      roleFor("Organizer", ["competition.view", "generic_scoring.manage", "judge.assignment.view", "judge.assignment.manage", "registration.public.view", "registration.public.review", "privacy.request.view", "privacy.request.manage", "result.workflow.submit", "result.workflow.review", "result.workflow.approve"]),
+      roleFor("Organizer", ["competition.view", "competition.update", "generic_scoring.manage", "judge.assignment.view", "judge.assignment.manage", "registration.public.view", "registration.public.review", "privacy.request.view", "privacy.request.manage", "result.workflow.submit", "result.workflow.review", "result.workflow.approve"]),
       roleFor("Reviewer", ["competition.view", "result.workflow.review"]),
       roleFor("Approver", ["competition.view", "result.workflow.approve", "result.workflow.publish", "result.workflow.reopen"]),
     ]);
@@ -53,13 +53,31 @@ describe.skipIf(!owner || !runtime).sequential("Phase 21 organizer operations an
   afterAll(async () => { await runtime?.$disconnect(); await owner?.$disconnect(); });
 
   it("accepts an idempotent public registration without exposing private fields", async () => {
-    const payload = { publicSlug, participantType: "TEAM", participantName: "Tim Publik A", institution: "Sekolah Sintetis", contactEmail: `team-a-${suffix}@test.invalid`, contactPhone: "080000000", teamData: {}, formData: { branch: "LCT" }, documents: [], idempotencyKey: `registration:${suffix}:a`, ...privacy };
+    const payload = { publicSlug, participantType: "TEAM", participantName: "Tim Publik A", institution: "Sekolah Sintetis", contactEmail: `team-a-${suffix}@test.invalid`, contactPhone: "080000000", teamData: {}, formData: { branch: "LCT" }, documents: [{ storageKey: `${organizationId}/00000000-0000-4000-8000-000000000000.pdf`, originalName: "surat-sekolah.pdf", mimeType: "application/pdf" as const, sizeBytes: 128 }], idempotencyKey: `registration:${suffix}:a`, ...privacy };
     firstRegistration = await submitPublicRegistration(payload);
     const replay = await submitPublicRegistration(payload);
     expect(replay).toEqual(firstRegistration);
     const safe = await publicRegistrationStatus({ registrationNumber: firstRegistration.registrationNumber, token: firstRegistration.token });
     expect(safe.status).toBe("SUBMITTED");
     expect(safe).not.toHaveProperty("contactEmail"); expect(safe).not.toHaveProperty("contactPhone"); expect(safe).not.toHaveProperty("documents");
+  });
+
+  it("publishes a safe registration endpoint for a new draft competition", async () => {
+    const competition = await owner!.competition.create({ data: { organizationId, name: "P26 Registration Pilot", slug: `p26-registration-${suffix}`, format: "GROUP_STAGE", status: "DRAFT", genericProfile: { create: { kind: "ACADEMIC", participantMode: "BOTH", scoringMethod: "POINTS" } } } });
+    const configured = await configurePublicRegistration(actor(organizerId), { organizationId, competitionId: competition.id, publicSlug: `p26-public-${suffix}`, enabled: true, quota: 25, requirements: [] });
+    expect(configured.publication).toEqual({ publicSlug: `p26-public-${suffix}`, status: "PUBLISHED" });
+    expect((await owner!.competition.findUniqueOrThrow({ where: { id: competition.id } })).status).toBe("REGISTRATION");
+  });
+
+  it("reveals registration administration data only through an audited tenant-scoped DAL", async () => {
+    const registration = await owner!.publicRegistration.findFirstOrThrow({ where: { registrationNumber: firstRegistration.registrationNumber } });
+    const detail = await getPublicRegistrationReviewDetail(actor(organizerId), organizationId, registration.id);
+    expect(detail.contactEmail).toBe(`team-a-${suffix}@test.invalid`);
+    expect(detail.documents).toEqual([{ index: 0, originalName: "surat-sekolah.pdf", mimeType: "application/pdf", sizeBytes: 128 }]);
+    expect(detail.documents[0]).not.toHaveProperty("storageKey");
+    expect(await owner!.sensitiveDataAccessLog.count({ where: { organizationId, actorId: organizerId, resourceType: "PublicRegistration", resourceId: registration.id } })).toBe(1);
+    await expect(getPublicRegistrationReviewDetail(actor(outsiderId), organizationId, registration.id)).rejects.toMatchObject({ status: 403 });
+    await expect(getPublicRegistrationReviewDetail(actor(organizerId), otherOrganizationId, registration.id)).rejects.toMatchObject({ status: 403 });
   });
 
   it("enforces quota atomically under concurrent registration", async () => {
@@ -95,7 +113,7 @@ describe.skipIf(!owner || !runtime).sequential("Phase 21 organizer operations an
 
   it("audits sensitive queue access in an immutable tenant log", async () => {
     await getOrganizerOperations(actor(organizerId), organizationId);
-    const access = await owner!.sensitiveDataAccessLog.findFirstOrThrow({ where: { organizationId, actorId: organizerId } });
+    const access = await owner!.sensitiveDataAccessLog.findFirstOrThrow({ where: { organizationId, actorId: organizerId, resourceType: "PublicRegistrationQueue" } });
     expect(access.fieldSet).not.toContain("contactEmail");
     await expect(owner!.sensitiveDataAccessLog.update({ where: { id: access.id }, data: { purpose: "tampered" } })).rejects.toBeTruthy();
   });
@@ -119,6 +137,10 @@ describe.skipIf(!owner || !runtime).sequential("Phase 21 organizer operations an
     await revokeJudgeAssignment(actor(organizerId), organizationId, assignment.id, "Synthetic immediate revoke test");
     await expect(recordGenericScore(actor(organizerId), { organizationId, sessionId, entryId, criterionId, score: 91, idempotencyKey: `p21-revoked-${suffix}` })).rejects.toMatchObject({ status: 403 });
     await assignJudge(actor(organizerId), { organizationId, competitionId, sessionId, judgeId: organizerId, idempotencyKey: `p21-judge-restored-${suffix}` });
+    const corrected = await recordGenericScore(actor(organizerId), { organizationId, sessionId, entryId, criterionId, score: 92, idempotencyKey: `p28-correction-${suffix}` });
+    const correctionReplay = await recordGenericScore(actor(organizerId), { organizationId, sessionId, entryId, criterionId, score: 92, idempotencyKey: `p28-correction-${suffix}` });
+    expect(corrected.id).toBe(score.id); expect(correctionReplay.id).toBe(score.id); expect(correctionReplay.score).toBe(92);
+    expect(await owner!.genericScoreEntry.count({ where: { organizationId, sessionId, entryId, criterionId, judgeId: organizerId } })).toBe(1);
     await expect(recordGenericScore(actor(outsiderId), { organizationId, sessionId, entryId, criterionId, score: 100, idempotencyKey: `p21-outsider-${suffix}` })).rejects.toMatchObject({ status: 403 });
   });
 

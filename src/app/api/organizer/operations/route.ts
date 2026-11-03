@@ -5,7 +5,7 @@ import { ApiError, getApiActor } from "@/lib/auth/api";
 import { captureError } from "@/lib/observability/logger";
 import { withRuntimeDatabaseRoute } from "@/lib/runtime-route";
 import { enforceMutationRateLimit, rateLimitKey } from "@/lib/security/rate-limit";
-import { assignJudge, configurePublicRegistration, getOrganizerOperations, reviewPublicRegistration, revokeJudgeAssignment, transitionResultWorkflow } from "@/modules/phase21/service";
+import { assignJudge, configurePublicRegistration, getOrganizerOperations, getPublicRegistrationReviewDetail, reviewPublicRegistration, revokeJudgeAssignment, transitionResultWorkflow } from "@/modules/phase21/service";
 import { phase21OrganizerActionSchema } from "@/modules/phase21/validation";
 
 function failure(error: unknown) {
@@ -21,6 +21,11 @@ async function GETHandler(request: NextRequest) {
     const actor = await getApiActor();
     const organizationId = request.nextUrl.searchParams.get("organizationId");
     if (!organizationId) throw new ApiError(422, "organizationId wajib diisi.");
+    const registrationId = request.nextUrl.searchParams.get("registrationId");
+    if (registrationId) {
+      await enforceMutationRateLimit(rateLimitKey(["phase21-registration-detail", actor.id, organizationId]), 60, 60_000);
+      return NextResponse.json({ data: await getPublicRegistrationReviewDetail(actor, organizationId, registrationId) });
+    }
     return NextResponse.json({ data: await getOrganizerOperations(actor, organizationId) });
   } catch (error) { return failure(error); }
 }
