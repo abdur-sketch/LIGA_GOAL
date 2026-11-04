@@ -3,7 +3,7 @@
 | Lingkungan/gate | Keputusan | Alasan |
 | --- | --- | --- |
 | Local technical readiness | **GO** | 267 automated PASS, build/migration/drift PASS. |
-| Checkpoint commit | **AWAITING APPROVAL** | Belum diizinkan. |
+| Checkpoint commit | **COMPLETE** | Commit `5cc2df1e6d5c7e71a43712e8bba4adef4e90c71e` terverifikasi pada local dan remote `main`. |
 | Development cutover | **CONDITIONAL GO / AWAITING APPROVAL** | Rehearsal valid; DB asli tetap mismatch dan tidak diubah. |
 | Local Release Candidate review | **GO** | Archive lokal boleh disiapkan, bukan dipromosikan. |
 | Staging deployment | **NO-GO** | Infrastruktur dan izin deployment belum ada. |
@@ -12,7 +12,7 @@
 
 ## Persetujuan terpisah yang diperlukan
 
-- commit checkpoint;
+- commit catatan rekonsiliasi Git 4 November 2026;
 - cutover database development;
 - push GitHub;
 - perbaikan/aktivasi billing CI;
